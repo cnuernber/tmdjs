@@ -64,3 +64,9 @@
 
 (defprotocol PSetConstant
   (-set-constant! [item offset elem-count data]))
+
+
+(defprotocol PListLike
+  (-add [this elem])
+  (-add-all [this container])
+  )

@@ -57,4 +57,19 @@
              (not (<= (+ idx (count data)) (count item))))
     (throw (js/Error. (str "data length + idx " (+ (count data) idx)
                            " is out of range of item length ") (count item))))
-  (dtype-proto/-set-value! item idx data))
+  (dtype-proto/-set-value! item idx data)
+  item)
+
+
+(defn set-constant!
+  [item idx elem-count data]
+  (when-not item
+    (throw (js/Error. "Item is nil")))
+  (when-not (<= (+ idx elem-count) (count item))
+    (throw (js/Error. "Index is out of item length")))
+  (when (and (counted? data)
+             (not (<= (+ idx (count data)) (count item))))
+    (throw (js/Error. (str "data length + idx " (+ (count data) idx)
+                           " is out of range of item length ") (count item))))
+  (dtype-proto/-set-constant! item idx elem-count data)
+  item)

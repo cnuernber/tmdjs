@@ -1,8 +1,10 @@
 (ns tech.v3.datatype
   (:require [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.base :as dt-base]
-            [tech.v3.datatype.copy-make-container :as dt-cmc])
+            [tech.v3.datatype.copy-make-container :as dt-cmc]
+            [tech.v3.datatype.list :as dt-list])
   (:refer-clojure :exclude [clone counted?]))
+
 
 (defn ecount
   [item]
@@ -31,6 +33,7 @@
     (dtype-proto/-datatype item)
     :object))
 
+
 (defn as-typed-array
   [item]
   (dt-base/as-typed-array item))
@@ -39,6 +42,16 @@
 (defn as-js-array
   [item]
   (dt-base/as-js-array item))
+
+
+(defn ensure-indexable
+  [item]
+  (dt-base/ensure-indexable item))
+
+
+(defn as-agetable
+  [item]
+  (dt-base/as-agetable item))
 
 
 (defn sub-buffer-copy
@@ -70,3 +83,34 @@
   (unlike the jvm version)."
   [dtype len-or-data]
   (dt-cmc/make-container dtype len-or-data))
+
+
+(defn make-list
+  "Make a list.  Lists implement the tech.v3.datatype.protocols/PListLike protocol -
+  `-add`, `-add-all`"
+  [dtype & [init-buf-size]]
+  (dt-list/make-list dtype init-buf-size))
+
+
+(defn- maybe-min-count
+  [arg-seq]
+  (let [farg (first arg-seq)]
+    (when (counted? farg)
+      (reduce (fn [min-c arg]
+                (when (and min-c (counted? arg))
+                  (min min-c (count arg))))
+              (count farg)
+              (rest arg-seq)))))
+
+
+(defn emap
+  "non-lazy elementwise map a function over a sequences.  Returns a countable/indexable array
+  of results."
+  [map-fn ret-dtype & args]
+  (let [retval (dt-list/make-primitive-list
+                (make-container ret-dtype
+                                (or (maybe-min-count args) 8))
+                ret-dtype 0)]
+    (doseq [item (apply map map-fn args)]
+      (dtype-proto/-add retval item))
+    retval))

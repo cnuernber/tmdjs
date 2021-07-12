@@ -49,7 +49,7 @@
         (number? data)
         (aset item idx data)
         (accent-arrays/typed-array? data)
-        (.set item idx data)
+        (.set item data idx)
         (dtype-proto/-convertible-to-js-array? data)
         (dotimes [didx (count data)]
           (aset item (+ idx didx) (aget data didx)))
@@ -160,7 +160,7 @@
   (-seq [array] (array-seq buf))
   ISeq
   (-first [array] (nth buf 0))
-  (-rest  [array] (dtype-proto/-sub-buffer array 1 (dec (count array))))
+  (-rest  [array] (dtype-proto/-sub-buffer buf 1 (dec (count buf))))
   IFn
   (-invoke [array idx] (nth buf idx))
   IIndexed
@@ -179,3 +179,27 @@
 (extend-type IntegerRange
   dtype-proto/PElemwiseDatatype
   (-elemwise-datatype [r] :int64))
+
+
+(defn indexed-buffer
+  "Given indexes and a buffer, return a new buffer that is ordered by the given indexes"
+  [indexes buf]
+  (let [buf (dt-base/ensure-indexable buf)
+        dtype (dtype-proto/-elemwise-datatype buf)
+        indexes (dt-base/ensure-indexable indexes)
+        n-indexes (count indexes)
+        retval (make-array dtype n-indexes)]
+    (if-let [indexes (dt-base/as-agetable indexes)]
+      (if-let [buf (dt-base/as-agetable buf)]
+        ;;buf is agetable
+        (dotimes [idx n-indexes]
+          (aset retval idx (aget buf (aget indexes idx))))
+        ;;buf is not agetable
+        (dotimes [idx n-indexes]
+          (aset retval idx (nth buf (aget indexes idx)))))
+      (if-let [buf (dt-base/as-agetable buf)]
+        (dotimes [idx n-indexes]
+          (aset retval idx (aget buf (nth indexes idx))))
+        (dotimes [idx n-indexes]
+          (aset retval idx (nth buf (nth indexes idx))))))
+    (make-typed-buffer retval dtype)))
