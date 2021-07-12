@@ -9,6 +9,7 @@
 
 
 (deftype PrimitiveList [^:unsynchronized-mutable buf
+                        ^:unsynchronized-mutable agetable?
                         dtype
                         ^:unsynchronized-mutable ptr
                         ^:unsynchronized-mutable buflen
@@ -28,7 +29,7 @@
   IPrintWithWriter
   (-pr-writer [array writer opts]
     (-write writer (str "#list[" dtype "]"
-                        (take 20 (array-seq (dt-proto/-sub-buffer buf 0 ptr))))))
+                        (take 20 (seq (dt-proto/-sub-buffer buf 0 ptr))))))
   ISequential
   ISeqable
   (-seq [array] (array-seq buf))
@@ -63,6 +64,11 @@
   (-convertible-to-js-array? [this] (dt-proto/-convertible-to-js-array? buf))
   (->js-array [this] (dt-proto/->js-array (dt-proto/-sub-buffer buf 0 ptr)))
 
+
+  dt-proto/PAgetable
+  (-convertible-to-agetable? [this] (dt-proto/-convertible-to-agetable? buf))
+  (->agetable [this] (dt-proto/->agetable (dt-proto/-sub-buffer buf 0 ptr)))
+
   dt-proto/PSetValue
   (-set-value! [item idx data]
     (-> (dt-proto/-sub-buffer buf 0 ptr)
@@ -76,11 +82,16 @@
   dt-proto/PListLike
   (-add [this elem]
     (when (== ptr buflen)
-      (let [new-buf (dt-cmc/make-container dtype (* 2 buflen))]
+      (let [new-buf (dt-cmc/make-container dtype (* 2 buflen))
+            abuf (dt-base/as-agetable new-buf)
+            new-agetable? (boolean abuf)]
         (dt-base/set-value! new-buf 0 buf)
-        (set! buf (dt-base/as-agetable new-buf))
+        (set! buf (or abuf new-buf))
+        (set! agetable? new-agetable?)
         (set! buflen (* 2 buflen))))
-    (aset buf ptr elem)
+    (if agetable?
+      (aset buf ptr elem)
+      (dt-proto/-set-value! buf ptr elem))
     (set! ptr (inc ptr))
     this)
   (-add-all [this container]
@@ -88,9 +99,12 @@
       (let [n-elems (count container)]
         (when (> (+ ptr n-elems) buflen)
           (let [new-len (* 2 (+ ptr n-elems))
-                new-buf (dt-cmc/make-container dtype new-len)]
+                new-buf (dt-cmc/make-container dtype new-len)
+                abuf (dt-base/as-agetable new-buf)
+                new-agetable? (boolean abuf)]
             (dt-base/set-value! new-buf 0 buf)
-            (set! buf (dt-base/as-agetable new-buf))
+            (set! buf (or abuf new-buf))
+            (set! agetable? new-agetable?)
             (set! buflen new-len)))
         (dt-base/set-value! buf ptr container)
         (set! ptr (+ ptr n-elems)))
@@ -105,11 +119,13 @@
   (let [dtype (or dtype (dt-proto/-elemwise-datatype buf))
         ptr (or ptr 0)
         buflen (count buf)
-        buf (dt-base/as-agetable buf)]
-    (PrimitiveList. buf dtype ptr buflen metadata)))
+        abuf (dt-base/as-agetable buf)
+        agetable? (if abuf true false)]
+    (PrimitiveList. (or abuf buf) agetable? dtype ptr buflen metadata)))
 
 
 (defn make-list
   [dtype & [initial-bufsize]]
   (let [initial-bufsize (or initial-bufsize 4)]
-    (make-primitive-list (dt-arrays/make-array dtype initial-bufsize) dtype 0)))
+    (make-primitive-list (dt-arrays/make-array dtype initial-bufsize)
+                         dtype 0)))

@@ -58,6 +58,25 @@
   (-convertible-to-js-array? [buf] false))
 
 
+(defprotocol PAgetable
+  (-convertible-to-agetable? [buf])
+  (->agetable [buf]))
+
+
+(extend-protocol PAgetable
+  object
+  (-convertible-to-agetable? [buf] (or (-convertible-to-js-array? buf)
+                                       (-convertible-to-typed-array? buf)))
+  (->agetable [buf] (cond
+                      (-convertible-to-js-array? buf) (->js-array buf)
+                      (-convertible-to-typed-array? buf) (->typed-array buf)
+                      :else
+                      (throw (js/Error. "Object is not aget-able"))))
+  array
+  (-convertible-to-agetable? [buf] true)
+  (->agetable [buf] buf))
+
+
 (defprotocol PSetValue
   (-set-value! [item idx data]))
 
@@ -68,5 +87,4 @@
 
 (defprotocol PListLike
   (-add [this elem])
-  (-add-all [this container])
-  )
+  (-add-all [this container]))

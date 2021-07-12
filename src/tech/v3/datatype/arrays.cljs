@@ -1,7 +1,8 @@
 (ns tech.v3.datatype.arrays
   (:require [accent.arrays :as accent-arrays]
             [tech.v3.datatype.protocols :as dtype-proto]
-            [tech.v3.datatype.base :as dt-base])
+            [tech.v3.datatype.base :as dt-base]
+            [tech.v3.datatype.argtypes :as argtypes])
   (:refer-clojure :exclude [make-array]))
 
 
@@ -62,6 +63,9 @@
       (.fill item data offset (+ offset elem-count)))))
 
 
+(declare make-sub-array)
+
+
 (extend-type array
   dtype-proto/PDatatype
   (-datatype [item] :js-array)
@@ -73,14 +77,9 @@
     (.slice item off (+ off len)))
   dtype-proto/PSubBuffer
   (-sub-buffer [item off len]
-    (.subarray item off (+ off len)))
+    (make-sub-array item off (+ off len)))
   ICloneable
-  (-clone [item]
-    (let [len (aget item "length")
-          retval (js* "new item.constructor(len)")]
-      (dotimes [idx len]
-        (aset retval idx (aget item idx)))
-      retval))
+  (-clone [item] (.slice item 0 (count item)))
   dtype-proto/PSetValue
   (-set-value! [item idx data]
     (cond
@@ -99,18 +98,119 @@
     (.fill item data offset (+ offset elem-count))))
 
 
-(defn make-array
-  [dtype len]
-  (case dtype
-    :int8 (js/Int8Array. len)
-    :uint8 (js/Uint8Array. len)
-    :int16 (js/Int16Array. len)
-    :uint16 (js/Uint16Array. len)
-    :int32 (js/Int32Array. len)
-    :uint32 (js/Uint32Array. len)
-    :float32 (js/Float32Array. len)
-    :float64 (js/Float64Array. len)
-    (js/Array. len)))
+(deftype SubArray [buf moff mlen]
+  ICounted
+  (-count [this] mlen)
+  ICloneable
+  (-clone [this] (.slice buf moff mlen))
+  IPrintWithWriter
+  (-pr-writer [array writer opts]
+    (-write writer (str "#sub-array"
+                        (take 20 (seq array)))))
+  ISequential
+  ISeqable
+  (-seq [array] (array-seq (clone array)))
+  ISeq
+  (-first [array] (nth array 0))
+  (-rest  [array] (dtype-proto/-sub-buffer array 1 (dec (count buf))))
+  IFn
+  (-invoke [array idx] (aget buf (+ idx moff)))
+  IIndexed
+  (-nth [array n] (aget buf (+ n moff)))
+  (-nth [array n not-found]
+    (if (< n mlen)
+      (aget buf (+ moff n))
+      not-found))
+  dtype-proto/PDatatype
+  (-datatype [item] :js-sub-array)
+  dtype-proto/PSubBufferCopy
+  (-sub-buffer-copy [item off len]
+    (.slice buf (+ off moff) (+ off moff len)))
+  dtype-proto/PSubBuffer
+  (-sub-buffer [item off len]
+    (SubArray. buf (+ moff off) len)))
+
+
+(defn bool-val->byte
+  [val]
+  (if (number? val)
+    (if (== 0.0 val) 0 1)
+    (if val 1 0)))
+
+
+(defn- booleans->bytes
+  [data]
+  (cond
+    (argtypes/scalar? data) (bool-val->byte data)
+    (dtype-proto/-convertible-to-typed-array? data)
+    (.map (dtype-proto/->typed-array data) bool-val->byte)
+    (dtype-proto/-convertible-to-js-array? data)
+    (.map (dtype-proto/->js-array data) bool-val->byte)
+    (sequential? data)
+    (mapv bool-val->byte data)
+    ;;scalars should fall through here.
+    :else
+    (if data 1 0)))
+
+(defn byte->boolean
+  [val]
+  (if (== 0 val) false true))
+
+;;Booleans are stored as 1,0 bytes.
+(deftype BooleanArray [buf metadata]
+  ICounted
+  (-count [item] (count buf))
+  ICloneable
+  (-clone [item] (BooleanArray. (clone buf) metadata))
+  dtype-proto/PElemwiseDatatype
+  (-elemwise-datatype [item] :boolean)
+  dtype-proto/PSubBufferCopy
+  (-sub-buffer-copy [item off len]
+    (BooleanArray. (dtype-proto/-sub-buffer-copy buf off len) metadata))
+  dtype-proto/PSubBuffer
+  (-sub-buffer [item off len]
+    (BooleanArray. (dtype-proto/-sub-buffer buf off len) metadata))
+  dtype-proto/PSetValue
+  (-set-value! [item idx data]
+    (dtype-proto/-set-value! buf idx (booleans->bytes data))
+    item)
+  dtype-proto/PSetConstant
+  (-set-constant! [item offset elem-count data]
+    (dtype-proto/-set-constant! buf offset elem-count
+                                (booleans->bytes data))
+    item)
+  dtype-proto/PToTypedArray
+  (-convertible-to-typed-array? [this] true)
+  (->typed-array [this] buf)
+  ;;Disable aget for this buffer.  This is because it will result in algorithms
+  ;;getting the base buffer which will mean they get 1,0 instead of true,false.
+  dtype-proto/PAgetable
+  (-convertible-to-agetable? [this] false)
+  IWithMeta
+  (-with-meta [coll new-meta]
+    (if (identical? new-meta metadata)
+      coll
+      (BooleanArray. buf new-meta)))
+  IMeta
+  (-meta [coll] metadata)
+  IPrintWithWriter
+  (-pr-writer [array writer opts]
+    (-write writer (str "#boolean-array"
+                        (take 20 (map byte->boolean (array-seq buf))))))
+  ISequential
+  ISeqable
+  (-seq [array] (map byte->boolean buf))
+  ISeq
+  (-first [array] (byte->boolean (nth buf 0)))
+  (-rest  [array] (dtype-proto/-sub-buffer array 1 (dec (count buf))))
+  IFn
+  (-invoke [array idx] (byte->boolean (nth buf idx)))
+  IIndexed
+  (-nth [array n] (byte->boolean (nth buf n)))
+  (-nth [array n not-found]
+    (if (< n (count buf))
+      (byte->boolean (nth buf n))
+      not-found)))
 
 
 (declare make-typed-buffer)
@@ -176,6 +276,24 @@
   (TypedBuffer. buf dtype metadata))
 
 
+(defn make-array
+  [dtype len]
+  (if (= dtype :boolean)
+    (BooleanArray. (js/Int8Array.  len) nil)
+    (-> (case dtype
+          :int8 (js/Int8Array. len)
+          :uint8 (js/Uint8Array. len)
+          :int16 (js/Int16Array. len)
+          :uint16 (js/Uint16Array. len)
+          :int32 (js/Int32Array. len)
+          :uint32 (js/Uint32Array. len)
+          :float32 (js/Float32Array. len)
+          :float64 (js/Float64Array. len)
+          (js/Array. len))
+        (make-typed-buffer dtype))))
+
+
+
 (extend-type IntegerRange
   dtype-proto/PElemwiseDatatype
   (-elemwise-datatype [r] :int64))
@@ -188,18 +306,23 @@
         dtype (dtype-proto/-elemwise-datatype buf)
         indexes (dt-base/ensure-indexable indexes)
         n-indexes (count indexes)
-        retval (make-array dtype n-indexes)]
+        retval (make-array dtype n-indexes)
+        ;;this code is structured to very carefully to take into account that boolean
+        ;;arrays store their data as integer buffers.  Because the storage is different
+        ;;than the presentation, those datatypes are not 'agetable' but because we
+        ;;are just copying/reindexing data it is OK to use same representation.
+        dest-buf (or (dt-base/as-js-array retval) (dt-base/as-typed-array retval))]
     (if-let [indexes (dt-base/as-agetable indexes)]
-      (if-let [buf (dt-base/as-agetable buf)]
+      (if-let [buf (or (dt-base/as-js-array buf) (dt-base/as-typed-array buf))]
         ;;buf is agetable
         (dotimes [idx n-indexes]
-          (aset retval idx (aget buf (aget indexes idx))))
+          (aset dest-buf idx (aget buf (aget indexes idx))))
         ;;buf is not agetable
         (dotimes [idx n-indexes]
-          (aset retval idx (nth buf (aget indexes idx)))))
-      (if-let [buf (dt-base/as-agetable buf)]
+          (aset dest-buf idx (nth buf (aget indexes idx)))))
+      (if-let [buf (or (dt-base/as-js-array buf) (dt-base/as-typed-array buf))]
         (dotimes [idx n-indexes]
-          (aset retval idx (aget buf (nth indexes idx))))
+          (aset dest-buf idx (aget buf (nth indexes idx))))
         (dotimes [idx n-indexes]
-          (aset retval idx (nth buf (nth indexes idx))))))
-    (make-typed-buffer retval dtype)))
+          (aset dest-buf idx (nth buf (nth indexes idx))))))
+    retval))

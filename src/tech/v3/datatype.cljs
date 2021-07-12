@@ -2,7 +2,9 @@
   (:require [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.base :as dt-base]
             [tech.v3.datatype.copy-make-container :as dt-cmc]
-            [tech.v3.datatype.list :as dt-list])
+            [tech.v3.datatype.list :as dt-list]
+            [tech.v3.datatype.arrays :as dt-arrays]
+            [tech.v3.datatype.casting :as casting])
   (:refer-clojure :exclude [clone counted?]))
 
 
@@ -103,10 +105,8 @@
               (rest arg-seq)))))
 
 
-(defn emap
-  "non-lazy elementwise map a function over a sequences.  Returns a countable/indexable array
-  of results."
-  [map-fn ret-dtype & args]
+(defn- emap-list
+  [map-fn ret-dtype args]
   (let [retval (dt-list/make-primitive-list
                 (make-container ret-dtype
                                 (or (maybe-min-count args) 8))
@@ -114,3 +114,18 @@
     (doseq [item (apply map map-fn args)]
       (dtype-proto/-add retval item))
     retval))
+
+
+(defn emap
+  "non-lazy elementwise map a function over a sequences.  Returns a countable/indexable array
+  of results."
+  [map-fn ret-dtype & args]
+  (let [ret-dtype (or ret-dtype (reduce casting/widest-datatype (map elemwise-datatype args)))]
+    (if (= 1 (count args))
+      ;;special case out of we can use array.map or typed-array.map
+      (let [arg (first args)
+            aarg (dt-base/as-agetable arg)]
+        (if (and aarg (= ret-dtype (elemwise-datatype arg)))
+          (dt-arrays/make-typed-buffer (.map aarg map-fn) ret-dtype)
+          (emap-list map-fn ret-dtype args)))
+      (emap-list map-fn ret-dtype args))))

@@ -44,7 +44,8 @@
 
 (defn as-agetable
   [data]
-  (or (as-typed-array data) (as-js-array data)))
+  (when (dtype-proto/-convertible-to-agetable? data)
+    (dtype-proto/->agetable data)))
 
 
 (defn set-value!
