@@ -1,4 +1,6 @@
 (ns tech.v3.datatype
+  "Support for programming with arrays and a fast set implementation for indexe (int32) values.
+  For complex/higher order algorithms see [[tech.v3.datatype.argops]]"
   (:require [tech.v3.datatype.protocols :as dt-proto]
             [tech.v3.datatype.base :as dt-base]
             [tech.v3.datatype.copy-make-container :as dt-cmc]
@@ -55,9 +57,14 @@
   (dt-base/integer-range? item))
 
 
-(defn iterate-range!
-  [consume-fn range]
-  (dt-base/iterate-range! consume-fn range))
+(defn iterate!
+  [consume-fn data]
+  (dt-base/iterate! consume-fn data))
+
+
+(defn indexed-iterate!
+  [consume-fn data]
+  (dt-base/indexed-iterate! consume-fn data))
 
 
 (defn sub-buffer-copy
@@ -167,3 +174,21 @@
 (defn set-and-not
   "Perform set-difference.  Implemented for efficiently js sets and clojure sets."
   [lhs rhs] (dt-proto/-set-and-not lhs rhs))
+
+
+(defn set-offset
+  "Offset every member of the set by a constant returning a new set"
+  [lhs off]
+  (dt-proto/-set-offset lhs off))
+
+
+(defn set->ordered-indexes
+  "Create an ordered int32 buffer of the items in the set."
+  [data]
+  (bitmap/set->ordered-indexes data))
+
+
+(defn indexed-buffer
+  "Reindex the buffer via the given indexes returning a new buffer."
+  [indexes data]
+  (dt-arrays/indexed-buffer indexes data))

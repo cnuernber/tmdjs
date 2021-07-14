@@ -157,12 +157,13 @@
             (consume-fn idx (.-value data))
             (recur (.next vals) (unchecked-inc idx)))))
       :else
-      (let [item (seq item)]
+      (if-let [item (seq item)]
         (loop [val (first item)
-               item (rest item)]
-          ))
-      (doseq [[idx val] (map-indexed vector item)]
-        (consume-fn idx val))))
+               item (rest item)
+               idx 0]
+          (consume-fn idx val)
+          (when item
+            (recur (first item) (rest item) (unchecked-inc idx)))))))
   consume-fn)
 
 

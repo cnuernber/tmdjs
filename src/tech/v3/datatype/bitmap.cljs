@@ -9,7 +9,9 @@
 
 (extend-type js/Set
   ICounted
-  (-count [s] (aget s "size")))
+  (-count [s] (aget s "size"))
+  ICloneable
+  (-clone [s] (js/Set. s)))
 
 
 (defn ->iterable
@@ -41,14 +43,13 @@
            (.add retval (aget data idx)))
          retval)
        (dt-base/integer-range? data)
-       (let [retval (js/Set!.)]
+       (let [retval (js/Set.)]
          (dt-base/iterate-range! #(.add retval %) data)
          retval)
        (as-iterable data)
        (let [data (as-iterable data)
              retval (js/Set.)]
-         (dotimes [idx n-data]
-           (.add retval (nth data idx)))
+         (dt-base/iterate! #(.add retval %) data)
          retval)
        :else
        (let [retval (js/Set.)]
@@ -68,20 +69,22 @@
   (-set-or [lhs rhs]
     (let [rhs (->iterable rhs)
           retval (js/Set. lhs)]
-      (iterate-set! #(.add retval %) rhs)
+      (dt-base/iterate! #(.add retval %) rhs)
       retval))
   (-set-and [lhs rhs]
     (let [rhs (->iterable rhs)
           retval (js/Set.)]
-      (iterate-set! #(when (.has lhs %)
-                       (.add retval %))
-                    rhs)
+      (dt-base/iterate! #(when (.has lhs %)
+                           (.add retval %))
+                        rhs)
       retval))
   (-set-and-not [lhs rhs]
-    )
+    (let [retval (js/Set. lhs)]
+      (dt-base/iterate! #(.delete retval %) rhs)
+      retval))
   (-set-offset [lhs off]
     (let [retval (js/Set.)]
-      (iterate-set! #(.add retval (+ % off)) lhs)
+      (dt-base/iterate! #(.add retval (+ % off)) lhs)
       retval)))
 
 
@@ -93,7 +96,7 @@
   (-set-and-not [lhs rhs] (set/difference lhs rhs))
   (-set-offset [lhs off]
     (let [retval (js/Set.)]
-      (iterate-set! #(.add retval (+ % off)) lhs)
+      (dt-base/iterate! #(.add retval (+ % off)) lhs)
       retval)))
 
 
@@ -102,7 +105,7 @@
   [data]
   (let [indexes (dt-list/make-list :int32 (count data))
         buffer (dt-base/as-agetable indexes)]
-    (iterate-set! #(dt-proto/-add indexes %) data)
+    (dt-base/iterate! #(dt-proto/-add indexes %) data)
     (.sort buffer)
     indexes))
 
@@ -135,12 +138,12 @@
       (time (set->ordered-indexes data))))
 
 
-  ;; set construction
-  ;; "Elapsed time: 140.462971 msecs"
-  ;; set union
-  ;; "Elapsed time: 204.093573 msecs"
-  ;; to ordered indexes
-  ;; "Elapsed time: 0.272743 msecs"
+;; set construction
+;; "Elapsed time: 119.516597 msecs"
+;; set union
+;; "Elapsed time: 363.884627 msecs"
+;; to ordered indexes
+;; "Elapsed time: 26.387132 msecs"
 
 
   (def ignored
@@ -150,18 +153,14 @@
       (println "set-union")
       (time (set/union data data))
       (println "to ordered indexes")
-      (time (let [indexes (dt-list/make-list :int32 (count data))
-                  buffer (dt-base/as-agetable indexes)]
-              (iterate-set! #(dt-proto/-add indexes %) data)
-              (.sort buffer)
-              indexes))))
+      (time (set->ordered-indexes data))))
+
 
 ;; set construction
-;; "Elapsed time: 1135.150053 msecs"
+;; "Elapsed time: 1146.016398 msecs"
 ;; set-union
-;; "Elapsed time: 789.842971 msecs"
+;; "Elapsed time: 877.601483 msecs"
 ;; to ordered indexes
-;; "Elapsed time: 0.179169 msecs"
-
+;; "Elapsed time: 389.167092 msecs"
 
   )

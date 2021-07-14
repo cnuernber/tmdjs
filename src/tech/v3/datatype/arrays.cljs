@@ -54,8 +54,13 @@
         (dtype-proto/-convertible-to-js-array? data)
         (dotimes [didx (count data)]
           (aset item (+ idx didx) (aget data didx)))
+        ;;common case for integer ranges
         (dt-base/integer-range? data)
-        (dt-base/indexed-iterate-range! #(aset item %1 %2) data)
+        (if (and (= 1 (aget data "step"))
+                 (= 0 (aget data "start")))
+          (dotimes [ridx (count data)]
+            (aset item (+ ridx idx) ridx))
+          (dt-base/indexed-iterate-range! #(aset item (+ idx %1) %2) data))
         :else
         (dotimes [didx (count data)]
           (aset item (+ idx didx) (nth data didx))))
