@@ -88,3 +88,10 @@
 (defprotocol PListLike
   (-add [this elem])
   (-add-all [this container]))
+
+
+(defprotocol PBitmapSet
+  (-set-or [lhs rhs])
+  (-set-and [lhs rhs])
+  (-set-and-not [lhs rhs])
+  (-set-offset [this off]))

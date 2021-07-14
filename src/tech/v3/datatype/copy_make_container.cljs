@@ -16,4 +16,4 @@
                (count data))
         container (dt-arrays/make-array dtype dlen)]
     (when data (dt-base/set-value! container 0 data))
-    (dt-arrays/make-typed-buffer container dtype)))
+    container))

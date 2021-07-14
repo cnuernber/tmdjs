@@ -54,6 +54,8 @@
         (dtype-proto/-convertible-to-js-array? data)
         (dotimes [didx (count data)]
           (aset item (+ idx didx) (aget data didx)))
+        (dt-base/integer-range? data)
+        (dt-base/indexed-iterate-range! #(aset item %1 %2) data)
         :else
         (dotimes [didx (count data)]
           (aset item (+ idx didx) (nth data didx))))
@@ -62,8 +64,6 @@
     (-set-constant! [item offset elem-count data]
       (.fill item data offset (+ offset elem-count)))))
 
-
-(declare make-sub-array)
 
 
 (extend-type array
@@ -77,7 +77,7 @@
     (.slice item off (+ off len)))
   dtype-proto/PSubBuffer
   (-sub-buffer [item off len]
-    (make-sub-array item off (+ off len)))
+    (.slice item off (+ off len)))
   ICloneable
   (-clone [item] (.slice item 0 (count item)))
   dtype-proto/PSetValue
@@ -89,6 +89,17 @@
           (dtype-proto/-convertible-to-js-array? data))
       (dotimes [didx (count data)]
         (aset item (+ idx didx) (aget data didx)))
+      (dt-base/integer-range? data)
+      (let [start (aget data "start")
+            step (aget data "step")
+            rend (aget data "end")
+            startpos (if (> step 0) start rend)
+            n-elems (count data)]
+        (if (and (= 0 start) (= 1 step))
+          (dotimes [idx n-elems]
+            (aset item idx idx))
+          (dotimes [idx n-elems]
+            (aset item idx (+ startpos (* idx step))))))
       :else
       (dotimes [didx (count data)]
         (aset item (+ idx didx) (nth data didx))))
@@ -96,39 +107,6 @@
   dtype-proto/PSetConstant
   (-set-constant! [item offset elem-count data]
     (.fill item data offset (+ offset elem-count))))
-
-
-(deftype SubArray [buf moff mlen]
-  ICounted
-  (-count [this] mlen)
-  ICloneable
-  (-clone [this] (.slice buf moff mlen))
-  IPrintWithWriter
-  (-pr-writer [array writer opts]
-    (-write writer (str "#sub-array"
-                        (take 20 (seq array)))))
-  ISequential
-  ISeqable
-  (-seq [array] (array-seq (clone array)))
-  ISeq
-  (-first [array] (nth array 0))
-  (-rest  [array] (dtype-proto/-sub-buffer array 1 (dec (count buf))))
-  IFn
-  (-invoke [array idx] (aget buf (+ idx moff)))
-  IIndexed
-  (-nth [array n] (aget buf (+ n moff)))
-  (-nth [array n not-found]
-    (if (< n mlen)
-      (aget buf (+ moff n))
-      not-found))
-  dtype-proto/PDatatype
-  (-datatype [item] :js-sub-array)
-  dtype-proto/PSubBufferCopy
-  (-sub-buffer-copy [item off len]
-    (.slice buf (+ off moff) (+ off moff len)))
-  dtype-proto/PSubBuffer
-  (-sub-buffer [item off len]
-    (SubArray. buf (+ moff off) len)))
 
 
 (defn bool-val->byte
@@ -151,6 +129,7 @@
     ;;scalars should fall through here.
     :else
     (if data 1 0)))
+
 
 (defn byte->boolean
   [val]
@@ -204,13 +183,18 @@
   (-first [array] (byte->boolean (nth buf 0)))
   (-rest  [array] (dtype-proto/-sub-buffer array 1 (dec (count buf))))
   IFn
-  (-invoke [array idx] (byte->boolean (nth buf idx)))
+  (-invoke [array n]
+    (let [n (if (< n 0) (+ (count array) n) n)]
+      (byte->boolean (nth buf n))))
   IIndexed
-  (-nth [array n] (byte->boolean (nth buf n)))
+  (-nth [array n]
+    (let [n (if (< n 0) (+ (count array) n) n)]
+      (byte->boolean (nth buf n))))
   (-nth [array n not-found]
-    (if (< n (count buf))
-      (byte->boolean (nth buf n))
-      not-found)))
+    (let [n (if (< n 0) (+ (count array) n) n)]
+      (if (< n (count buf))
+        (byte->boolean (nth buf n))
+        not-found))))
 
 
 (declare make-typed-buffer)
@@ -262,18 +246,27 @@
   (-first [array] (nth buf 0))
   (-rest  [array] (dtype-proto/-sub-buffer buf 1 (dec (count buf))))
   IFn
-  (-invoke [array idx] (nth buf idx))
+  (-invoke [array n]
+    (let [n (if (< n 0) (+ (count array) n) n)]
+      (nth buf n)))
   IIndexed
-  (-nth [array n] (nth buf n))
+  (-nth [array n]
+    (let [n (if (< n 0) (+ (count array) n) n)]
+      (nth buf n)))
   (-nth [array n not-found]
-    (if (< n (count buf))
-      (nth buf n)
-      not-found)))
+    (let [n (if (< n 0) (+ (count array) n) n)]
+      (if (< n (count buf))
+        (nth buf n)
+        not-found))))
 
 
 (defn make-typed-buffer
-  [buf dtype & [metadata]]
-  (TypedBuffer. buf dtype metadata))
+  [buf & [dtype metadata]]
+  (let [dtype (or dtype (dt-base/elemwise-datatype buf))]
+    (TypedBuffer. buf dtype metadata)))
+
+;;Shorthand as this is very common
+(defn tbuf [item] (make-typed-buffer item))
 
 
 (defn make-array

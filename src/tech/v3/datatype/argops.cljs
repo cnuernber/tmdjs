@@ -16,6 +16,8 @@
          n-data (count data)
          indexes (dt-cmc/make-container :int32 (range n-data))
          idx-ary (dt-base/as-typed-array indexes)]
+     ;;agetable is a major optimization for sorting.  element access time means a lot
+     ;;for a large nlogn op.
      (if-let [data (dt-base/as-agetable data)]
        (.sort idx-ary #(comp (aget data %1) (aget data %2)))
        (.sort idx-ary #(comp (nth data %1) (nth data %2))))
@@ -28,12 +30,26 @@
   "Return an array of indexes that pass the filter."
   [pred data]
   (let [data (dt-base/ensure-indexable data)
-        n-data (count data)
-        indexes (dt-cmc/make-container :int32 (range n-data))
-        idx-ary (dt-base/as-typed-array indexes)]
-    (if-let [data (dt-base/as-agetable data)]
-      (.filter idx-ary #(boolean (pred (aget data %))))
-      (.filter idx-ary #(boolean (pred (nth data %)))))))
+        n-data (count data)]
+    (case :list-filter
+      :ary-filter
+      (let [indexes (dt-cmc/make-container :int32 (range n-data))
+            idx-ary (dt-base/as-typed-array indexes)]
+        (if-let [data (dt-base/as-agetable data)]
+          (.filter idx-ary #(boolean (pred (aget data %))))
+          (.filter idx-ary #(boolean (pred (nth data %)))))
+        indexes)
+      :list-filter
+      (let [indexes (dt-list/make-list :int32)
+            n-data (count data)]
+        (if-let [data (dt-base/as-agetable data)]
+          (dotimes [idx n-data]
+            (when (pred (aget data idx))
+              (dt-proto/-add indexes idx)))
+          (dotimes [idx n-data]
+            (when (pred (nth data idx))
+              (dt-proto/-add indexes idx))))
+        indexes))))
 
 
 (defn arggroup

@@ -3,6 +3,34 @@
   (:refer-clojure :exclude [clone counted?]))
 
 
+(defn ecount
+  [item]
+  (if item
+    ;;As count is a protocol in js, we have no reason to define our own
+    (count item)
+    0))
+
+
+(defn clone
+  "Here for compat with jvm system"
+  [item]
+  (cljs.core/clone item))
+
+
+(defn elemwise-datatype
+  [item]
+  (if item
+    (dtype-proto/-elemwise-datatype item)
+    :object))
+
+
+(defn datatype
+  [item]
+  (if item
+    (dtype-proto/-datatype item)
+    :object))
+
+
 (defn as-typed-array
   [item]
   (when (and item (dtype-proto/-convertible-to-typed-array? item))
@@ -74,3 +102,90 @@
                            " is out of range of item length ") (count item))))
   (dtype-proto/-set-constant! item idx elem-count data)
   item)
+
+
+(defn integer-range?
+  [item]
+  (instance? IntegerRange item))
+
+
+(defn iterate-range!
+  [consume-fn range]
+  (let [start (aget range "start")
+        step (aget range "step")
+        n-elems (count range)]
+    (if (and (= 0 start) (= 1 step))
+      (dotimes [idx n-elems]
+        (consume-fn idx))
+      (dotimes [idx n-elems]
+        (consume-fn (+ start (* idx step)))))
+    consume-fn))
+
+
+(defn indexed-iterate-range!
+  [consume-fn range]
+  (let [start (aget range "start")
+        step (aget range "step")
+        n-elems (count range)]
+    (if (and (= 0 start) (= 1 step))
+      (dotimes [idx n-elems]
+        (consume-fn idx idx))
+      (dotimes [idx n-elems]
+        (consume-fn idx (+ start (* idx step)))))
+    consume-fn))
+
+
+(defn as-iterable
+  [data]
+  (when (aget data "values") data))
+
+
+(defn indexed-iterate!
+  [consume-fn item]
+  (if-let [ary (as-agetable item)]
+    (let [n-elems (count ary)]
+      (dotimes [idx n-elems]
+        (consume-fn idx (aget ary idx))))
+    (cond
+      (integer-range? item)
+      (indexed-iterate-range! consume-fn item)
+      (as-iterable item)
+      (let [vals (.values item)]
+        (loop [data (.next vals)
+               idx 0]
+          (when-not (.-done data)
+            (consume-fn idx (.-value data))
+            (recur (.next vals) (unchecked-inc idx)))))
+      :else
+      (let [item (seq item)]
+        (loop [val (first item)
+               item (rest item)]
+          ))
+      (doseq [[idx val] (map-indexed vector item)]
+        (consume-fn idx val))))
+  consume-fn)
+
+
+(defn iterate!
+  [consume-fn item]
+  (if-let [ary (as-agetable item)]
+    (let [n-elems (count ary)]
+      (dotimes [idx n-elems]
+        (consume-fn (aget ary idx))))
+    (cond
+      (integer-range? item)
+      (iterate-range! consume-fn item)
+      (as-iterable item)
+      (let [vals (.values item)]
+        (loop [data (.next vals)]
+          (when-not (.-done data)
+            (consume-fn (.-value data))
+            (recur (.next vals)))))
+      (and (counted? item) (indexed? item))
+      (let [n-elems (count item)]
+        (dotimes [idx n-elems]
+          (consume-fn (nth item idx))))
+      :else
+      (doseq [val item]
+        (consume-fn val))))
+  consume-fn)

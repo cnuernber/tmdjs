@@ -1,39 +1,33 @@
 (ns tech.v3.datatype
-  (:require [tech.v3.datatype.protocols :as dtype-proto]
+  (:require [tech.v3.datatype.protocols :as dt-proto]
             [tech.v3.datatype.base :as dt-base]
             [tech.v3.datatype.copy-make-container :as dt-cmc]
             [tech.v3.datatype.list :as dt-list]
             [tech.v3.datatype.arrays :as dt-arrays]
-            [tech.v3.datatype.casting :as casting])
+            [tech.v3.datatype.casting :as casting]
+            [tech.v3.datatype.bitmap :as bitmap])
   (:refer-clojure :exclude [clone counted?]))
 
 
 (defn ecount
   [item]
-  (if item
-    ;;As count is a protocol in js, we have no reason to define our own
-    (count item)
-    0))
+  (dt-base/ecount item))
 
 
 (defn clone
   "Here for compat with jvm system"
   [item]
-  (cljs.core/clone item))
+  (dt-base/clone item))
 
 
 (defn elemwise-datatype
   [item]
-  (if item
-    (dtype-proto/-elemwise-datatype item)
-    :object))
+  (dt-base/elemwise-datatype item))
 
 
 (defn datatype
   [item]
-  (if item
-    (dtype-proto/-datatype item)
-    :object))
+  (dt-base/datatype item))
 
 
 (defn as-typed-array
@@ -54,6 +48,16 @@
 (defn as-agetable
   [item]
   (dt-base/as-agetable item))
+
+
+(defn integer-range?
+  [item]
+  (dt-base/integer-range? item))
+
+
+(defn iterate-range!
+  [consume-fn range]
+  (dt-base/iterate-range! consume-fn range))
 
 
 (defn sub-buffer-copy
@@ -94,6 +98,20 @@
   (dt-list/make-list dtype init-buf-size))
 
 
+(defn add!
+  "Add an item to a list."
+  [list item]
+  (dt-proto/-add list item)
+  list)
+
+
+(defn add-all!
+  "add a countable sequence of items to a list"
+  [list items]
+  (dt-proto/-add-all list items)
+  list)
+
+
 (defn- maybe-min-count
   [arg-seq]
   (let [farg (first arg-seq)]
@@ -112,7 +130,7 @@
                                 (or (maybe-min-count args) 8))
                 ret-dtype 0)]
     (doseq [item (apply map map-fn args)]
-      (dtype-proto/-add retval item))
+      (dt-proto/-add retval item))
     retval))
 
 
@@ -129,3 +147,23 @@
           (dt-arrays/make-typed-buffer (.map aarg map-fn) ret-dtype)
           (emap-list map-fn ret-dtype args)))
       (emap-list map-fn ret-dtype args))))
+
+
+(defn ->js-set
+  "Create a javascript set.  These have superior performance when dealing with int32 indexes."
+  ([] (bitmap/->js-set))
+  ([data] (bitmap/->js-set data)))
+
+
+(defn set-or
+  "Perform set-union. Implemented for efficiently js sets and clojure sets."
+  [lhs rhs] (dt-proto/-set-or lhs rhs))
+
+(defn set-and
+  "Perform set-intersection.  Implemented for efficiently js sets and clojure sets."
+  [lhs rhs] (dt-proto/-set-and lhs rhs))
+
+
+(defn set-and-not
+  "Perform set-difference.  Implemented for efficiently js sets and clojure sets."
+  [lhs rhs] (dt-proto/-set-and-not lhs rhs))

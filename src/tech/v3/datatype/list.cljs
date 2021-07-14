@@ -37,13 +37,18 @@
   (-first [array] (nth buf 0))
   (-rest  [array] (dt-proto/-sub-buffer buf 1 (dec (count buf))))
   IFn
-  (-invoke [array idx] (nth buf idx))
+  (-invoke [array n]
+    (let [n (if (< n 0) (+ (count array) n) n)]
+      (nth buf n)))
   IIndexed
-  (-nth [array n] (nth buf n))
+  (-nth [array n]
+    (let [n (if (< n 0) (+ (count array) n) n)]
+      (nth buf n)))
   (-nth [array n not-found]
-    (if (< n (count buf))
-      (nth buf n)
-      not-found))
+    (let [n (if (< n 0) (+ (count array) n) n)]
+      (if (< n (count buf))
+        (nth buf n)
+        not-found)))
   dt-proto/PElemwiseDatatype
   (-elemwise-datatype [this] dtype)
   dt-proto/PDatatype
