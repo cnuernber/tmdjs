@@ -10,11 +10,15 @@
    [:int32 :float64]
    [:uint32 :float64]
    [:float32 :float64]
-   [:float64 :object]])
+   [:float64 :object]
+   ;;int64 doesn't exist in js land so these are auto-promoted to object
+   ;;containers
+   [:int64 :object]
+   [:uint64 :object]])
 
 
 (def datatype-vec [:boolean :int8 :uint8 :int16 :uint16 :int32 :uint32
-                   :float32 :float64 :object])
+                   :float32 :float64 :int64 :uint64 :object])
 
 (def datatype-rank
   (->> datatype-vec
@@ -64,3 +68,10 @@
          (first res)
          :else
          (smallest-datatype res))))))
+
+
+(def numeric-types (set (map first type-graph-data)))
+
+(defn numeric-type?
+  [dtype]
+  (boolean (numeric-types dtype)))

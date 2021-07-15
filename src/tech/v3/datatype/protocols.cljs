@@ -1,26 +1,42 @@
 (ns tech.v3.datatype.protocols)
 
 
+(defprotocol PDatatype
+  (-datatype [item]))
+
+
+(extend-protocol PDatatype
+  object
+  (-datatype [item] :object)
+  Keyword
+  (-datatype [item] :keyword)
+  string
+  (-datatype [item] :string)
+  boolean
+  (-datatype [item] :boolean)
+  number
+  (-datatype [item] :float64)
+  PersistentArrayMap
+  (-datatype [item] :persistent-map)
+  PersistentHashMap
+  (-datatype [item] :persistent-map))
+
+
 (defprotocol PElemwiseDatatype
   (-elemwise-datatype [item]))
 
 
 (extend-type object
   PElemwiseDatatype
-  (-elemwise-datatype [item] :object))
+  (-elemwise-datatype [item] (-datatype item)))
+
 
 (extend-type array
   PElemwiseDatatype
-  (-elemwise-datatype [item] :object))
-
-
-(defprotocol PDatatype
-  (-datatype [item]))
-
-
-(extend-type object
+  (-elemwise-datatype [item] :object)
   PDatatype
-  (-datatype [item] :object))
+  (-datatype [item] :array))
+
 
 (extend-type array
   PDatatype

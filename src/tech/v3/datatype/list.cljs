@@ -32,7 +32,7 @@
                         (take 20 (seq (dt-proto/-sub-buffer buf 0 ptr))))))
   ISequential
   ISeqable
-  (-seq [array] (array-seq buf))
+  (-seq [array] (array-seq (dt-proto/-sub-buffer buf 0 ptr)))
   ISeq
   (-first [array] (nth buf 0))
   (-rest  [array] (dt-proto/-sub-buffer buf 1 (dec (count buf))))
@@ -45,8 +45,9 @@
     (let [n (if (< n 0) (+ (count array) n) n)]
       (nth buf n)))
   (-nth [array n not-found]
-    (let [n (if (< n 0) (+ (count array) n) n)]
-      (if (< n (count buf))
+    (let [n-ary (count array)
+          n (if (< n 0) (+ (count array) n) n)]
+      (if (< n n-ary)
         (nth buf n)
         not-found)))
   dt-proto/PElemwiseDatatype
