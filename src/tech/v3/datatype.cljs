@@ -83,6 +83,11 @@
   (dt-base/set-value! item idx data))
 
 
+(defn set-constant!
+  [item idx elem-count value]
+  (dt-base/set-constant! item idx elem-count value))
+
+
 (defn copy!
   [src dest]
   (set-value! dest 0 src))
