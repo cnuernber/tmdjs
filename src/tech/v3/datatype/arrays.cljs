@@ -6,9 +6,6 @@
   (:refer-clojure :exclude [make-array]))
 
 
-(declare make-sub-buffer)
-
-
 (def ary-types
   {js/Int8Array :int8
    js/Uint8Array :uint8
@@ -82,6 +79,7 @@
     (.slice item off (+ off len)))
   dtype-proto/PSubBuffer
   (-sub-buffer [item off len]
+    ;;js arrays, like jvm arrays, have no sub-array functionality
     (.slice item off (+ off len)))
   ICloneable
   (-clone [item] (.slice item 0 (count item)))
@@ -186,7 +184,7 @@
   (-seq [array] (map byte->boolean buf))
   ISeq
   (-first [array] (byte->boolean (nth buf 0)))
-  (-rest  [array] (dtype-proto/-sub-buffer array 1 (dec (count buf))))
+  (-rest  [array] (dt-base/sub-buffer array 1 (dec (count buf))))
   IFn
   (-invoke [array n]
     (let [n (if (< n 0) (+ (count array) n) n)]
@@ -221,10 +219,10 @@
   (->typed-array [item] (dtype-proto/->typed-array buf))
   dtype-proto/PSubBufferCopy
   (-sub-buffer-copy [item off len]
-    (make-typed-buffer (dtype-proto/-sub-buffer-copy item off len) elem-dtype metadata))
+    (make-typed-buffer (dt-base/sub-buffer-copy item off len) elem-dtype metadata))
   dtype-proto/PSubBuffer
   (-sub-buffer [item off len]
-    (make-typed-buffer (dtype-proto/-sub-buffer item off len) elem-dtype metadata))
+    (make-typed-buffer (dt-base/sub-buffer item off len) elem-dtype metadata))
   dtype-proto/PSetValue
   (-set-value! [item idx data]
     (dtype-proto/-set-value! buf idx data)
@@ -291,36 +289,54 @@
         (make-typed-buffer dtype))))
 
 
-
 (extend-type IntegerRange
   dtype-proto/PElemwiseDatatype
-  (-elemwise-datatype [r] :int64))
+  (-elemwise-datatype [r] :int64)
+  dtype-proto/PSubBuffer
+  (-sub-buffer [r off len]
+    (let [n-start (nth r off)
+          n-end (nth r (+ off len))]
+      (range n-start n-end (aget r "step"))))
+  dtype-proto/PSubBufferCopy
+  (-sub-buffer-copy [r off len]
+    (dtype-proto/-sub-buffer r off len)))
 
 
 (defn indexed-buffer
   "Given indexes and a buffer, return a new buffer that is ordered by the given indexes"
   [indexes buf]
-  (let [buf (dt-base/ensure-indexable buf)
-        dtype (dtype-proto/-elemwise-datatype buf)
-        indexes (dt-base/ensure-indexable indexes)
-        n-indexes (count indexes)
-        retval (make-array dtype n-indexes)
-        ;;this code is structured to very carefully to take into account that boolean
-        ;;arrays store their data as integer buffers.  Because the storage is different
-        ;;than the presentation, those datatypes are not 'agetable' but because we
-        ;;are just copying/reindexing data it is OK to use same representation.
-        dest-buf (or (dt-base/as-js-array retval) (dt-base/as-typed-array retval))]
-    (if-let [indexes (dt-base/as-agetable indexes)]
-      (if-let [buf (or (dt-base/as-js-array buf) (dt-base/as-typed-array buf))]
-        ;;buf is agetable
-        (dotimes [idx n-indexes]
-          (aset dest-buf idx (aget buf (aget indexes idx))))
-        ;;buf is not agetable
-        (dotimes [idx n-indexes]
-          (aset dest-buf idx (nth buf (aget indexes idx)))))
-      (if-let [buf (or (dt-base/as-js-array buf) (dt-base/as-typed-array buf))]
-        (dotimes [idx n-indexes]
-          (aset dest-buf idx (aget buf (nth indexes idx))))
-        (dotimes [idx n-indexes]
-          (aset dest-buf idx (nth buf (nth indexes idx))))))
-    retval))
+  (if (and (dt-base/integer-range? indexes)
+           (== 1 (aget indexes "step")))
+    (let [n-elems (count buf)
+          rstart (aget indexes "start")
+          rend (aget indexes "end")]
+      (if (and (== rstart 0)
+               (== rend n-elems))
+        buf
+        (dt-base/sub-buffer buf
+                            (aget indexes "start")
+                            (- (aget indexes "end") (aget indexes "start")))))
+    (let [buf (dt-base/ensure-indexable buf)
+          dtype (dtype-proto/-elemwise-datatype buf)
+          indexes (dt-base/ensure-indexable indexes)
+          n-indexes (count indexes)
+          retval (make-array dtype n-indexes)
+          ;;this code is structured to very carefully to take into account that boolean
+          ;;arrays store their data as integer buffers.  Because the storage is different
+          ;;than the presentation, those datatypes are not 'agetable' but because we
+          ;;are just copying/reindexing data it is OK to use aget/aset.
+          dest-buf (or (dt-base/as-js-array retval) (dt-base/as-typed-array retval))]
+      (if-let [indexes (dt-base/as-agetable indexes)]
+        (if-let [buf (or (dt-base/as-js-array buf) (dt-base/as-typed-array buf))]
+          ;;buf is agetable
+          (dotimes [idx n-indexes]
+            (aset dest-buf idx (aget buf (aget indexes idx))))
+          ;;buf is not agetable
+          (dotimes [idx n-indexes]
+            (aset dest-buf idx (nth buf (aget indexes idx)))))
+        (if-let [buf (or (dt-base/as-js-array buf) (dt-base/as-typed-array buf))]
+          (dotimes [idx n-indexes]
+            (aset dest-buf idx (aget buf (nth indexes idx))))
+          (dotimes [idx n-indexes]
+            (aset dest-buf idx (nth buf (nth indexes idx))))))
+      retval)))

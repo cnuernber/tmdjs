@@ -33,7 +33,8 @@
   ([xs] (formatter xs 8))
   ([xs ^long digits] (formatter xs digits 8))
   ([xs ^long digits ^long threshold]
-   (let [max-left (apply max 0 (map left xs))
+   (let [xs (filter #(and (number? %) (js/isFinite %)) xs)
+         max-left (apply max 0 (map left xs))
          max-right (apply max 0 (map #(right % digits) xs))
          e? (> max-left threshold)
          format-fn (if e?

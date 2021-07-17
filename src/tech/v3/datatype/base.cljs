@@ -54,6 +54,16 @@
     (dtype-proto/-sub-buffer-copy item off len)))
 
 
+(defn sub-buffer
+  [item off & [len]]
+  (let [elen (count item)
+        maxlen (- elen off)
+        len (or len maxlen)]
+    (when-not (>= elen (+ off len))
+      (throw (js/Error. (str "Offset " off " len " len " => item length " elen))))
+    (dtype-proto/-sub-buffer item off len)))
+
+
 (defn counted?
   [item]
   (when item

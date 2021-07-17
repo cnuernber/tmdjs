@@ -62,12 +62,11 @@
                          (dtype/add-all! pparser (take n-rows data))
                          (col-parsers/-finalize pparser n-rows))))
                    (= :reader darg)
-                   (do
-                     (let [n-rows (or n-rows (count data))]
-                       (let [data (extend-data data n-rows)]
-                         #:tech.v3.dataset{:data data
-                                           :missing (scan-missing data)
-                                           :name colname})))
+                   (let [n-rows (or n-rows (count data))]
+                     (let [data (extend-data data n-rows)]
+                       #:tech.v3.dataset{:data data
+                                         :missing (scan-missing data)
+                                         :name colname}))
                    (= :scalar darg)
                    (let [container (dtype/make-container dtype n-rows)
                          missing? (= data (col-impl/datatype->missing-value dtype))
@@ -103,7 +102,10 @@
    (-contains-key? colname->col k))
 
   (^clj -assoc [coll k v]
-   (let [v (->column v k (ds-proto/-row-count coll))]
+   (let [row-count (ds-proto/-row-count coll)
+         v (->column v k (if (== 0 row-count)
+                           nil
+                           row-count))]
      (if-let [col-idx (get colname->col k)]
        (let [n-col-ary (assoc col-ary col-idx v)]
          (Dataset. n-col-ary colname->col metadata))
@@ -146,7 +148,7 @@
   (-name [this] (:name metadata))
 
   ISeqable
-  (-seq [this] (seq col-ary))
+  (-seq [this] (map #(MapEntry. (name %) % nil) col-ary))
 
   ISeq
   (-first [this] (first col-ary))
@@ -369,4 +371,5 @@ as an options map.  The options map overrides the dataset metadata.
                      (into {}))]
      (Dataset. columns colmap metadata)))
   ([colseq]
-   (new-dataset {:name "unnamed"} colseq)))
+   (new-dataset {:name "unnamed"} colseq))
+  ([] (new-dataset {:name "unnamed"} nil)))
