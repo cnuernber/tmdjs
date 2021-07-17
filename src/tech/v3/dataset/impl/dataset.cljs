@@ -208,7 +208,7 @@
   ;;step 1 is to stringify the data
   (let [reader-data (if (casting/numeric-type? (dtype/elemwise-datatype reader-data))
                       (fmt/format-sequence reader-data)
-                      (map #(when % (pr-str %)) reader-data))]
+                      (map #(when (not (nil? %)) (pr-str %)) reader-data))]
     ;;step 2 is to format the data respecting multiple line and max-width params.
     (->> reader-data
          (mapv (fn [strval]

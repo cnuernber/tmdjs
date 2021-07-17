@@ -70,7 +70,7 @@
          (smallest-datatype res))))))
 
 
-(def numeric-types (set (map first type-graph-data)))
+(def numeric-types (disj (set (map first type-graph-data)) :boolean))
 
 (defn numeric-type?
   [dtype]

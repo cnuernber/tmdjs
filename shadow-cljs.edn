@@ -1,11 +1,7 @@
 {:deps true
  ;; set an nrepl port for connection to a REPL.
  :nrepl {:port 8777}
- :builds {:app {:target :node-library
-                ;;module :app will output data to app.js
-                :modules {:app {:init-fn tmdjs/init}}
-                :output-dir "resources/public/js"
-                :output-to "resources/public/js"
-                :asset-path "js"
-                :devtools {:http-root "resources/public"
-                           :http-port 8700}}}}
+ :source-paths ["src" "test"]
+ :builds {:app {:target :node-test
+                :output-to "target/test.js"
+                :ns-regexp ".*test$"}}}

@@ -4,6 +4,7 @@
   #NaN values, and values of :tech.v3.dataset/missing are all interpreted as
   nil values."
   (:require [tech.v3.datatype :as dtype]
+            [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.protocols :as dt-proto]
             [tech.v3.dataset.impl.column :as dt-col]))
 
@@ -27,13 +28,16 @@
   [val missing-val]
   (or (nil? val)
       (= val :tech.v3.dataset/missing)
-      (= val missing-val)))
+      (and (= val missing-val)
+           (not (boolean? val)))))
 
 
 (defn fixed-type-parser
   [colname dtype]
   (let [data (dt-col/make-container dtype)
-        missing-val (dt-col/datatype->missing-value dtype)
+        missing-val (if (casting/numeric-type? dtype)
+                      ##NaN
+                      (dt-col/datatype->missing-value dtype))
         missing (js/Set.)]
     (reify
       ICounted
@@ -47,15 +51,26 @@
             (.add missing (count data))
             (dt-proto/-add data missing-val))
           (dt-proto/-add data val)))
-      (-add-all [this data]
-        (dtype/iterate! #(dt-proto/-add this %) data))
+      (-add-all [this new-data]
+        (if-let [aget-data (dtype/as-datatype-accurate-agetable new-data)]
+          ;;Do scanning/adding of data separate from checking for missing
+          (let [cur-off (count data)]
+            (dt-proto/-add-all data aget-data)
+            (dotimes [idx (count aget-data)]
+              (let [dval (aget aget-data idx)]
+                (when (missing? dval missing-val)
+                  (.add missing (+ idx cur-off) dval)))))
+          ;;if we have absolutely no idea what this is.
+          (dtype/iterate! #(dt-proto/-add this %) new-data)))
       PParser
       (-add-value! [this idx val]
         (add-missing! idx missing-val data missing)
         (dt-proto/-add this val))
       (-finalize [this rowcount]
         (add-missing! rowcount missing-val data missing)
-        #:tech.v3.dataset{:data (or (dtype/as-agetable data) data)
+        ;;We pay a performance penalty in order to have correct datatypes
+        ;;for array-based objects
+        #:tech.v3.dataset{:data (or (dtype/as-datatype-accurate-agetable data) data)
                           :name colname
                           :force-datatype? true
                           :missing missing}))))
@@ -102,14 +117,43 @@
                 (set! missing-val new-missing)))
             (dt-proto/-add container val))))))
   (-add-all [this data]
-    (dtype/iterate! #(dt-proto/-add this %) data))
+    (let [agetable-data (dtype/as-datatype-accurate-agetable data)]
+      ;;Potentially we can just straight line this data.  This is really purely a fastpath
+      ;;for numeric data
+      (if (and agetable-data
+               (or (>= (count missing) (count container))
+                   (= container-dtype (dtype/elemwise-datatype agetable-data))))
+        (do
+          ;;when we have to change our container datatype
+          (when (not= container-dtype (dtype/elemwise-datatype agetable-data))
+            (let [data-dtype (dtype/elemwise-datatype agetable-data)
+                  new-container (dt-col/make-container data-dtype)
+                  new-missing (dt-col/datatype->missing-value data-dtype)
+                  n-missing (count missing)]
+              (dotimes [idx n-missing]
+                (dt-proto/-add new-container new-missing))
+              (set! container new-container)
+              (set! container-dtype data-dtype)
+              (set! missing-val new-missing)))
+          (let [cur-off (count container)]
+            (dt-proto/-add-all container agetable-data)
+            ;;scan agetable data for missing
+            (when (#{:float32 :float64 :object} (dtype/elemwise-datatype agetable-data))
+              (dotimes [idx (count agetable-data)]
+                (let [dval (aget agetable-data idx)]
+                  (if (or (nil? dval)
+                          (js/isNaN dval))
+                    ;;record NaN
+                    (.add missing (+ idx cur-off))))))))
+        ;;fallback to basic iteration
+        (dtype/iterate! #(dt-proto/-add this %) data))))
   PParser
   (-add-value! [this idx val]
     (add-missing! idx missing-val container missing)
     (dt-proto/-add this val))
   (-finalize [this rowcount]
     (add-missing! rowcount missing-val container missing)
-    #:tech.v3.dataset{:data (or (dtype/as-agetable container) container)
+    #:tech.v3.dataset{:data (or (dtype/as-datatype-accurate-agetable container) container)
                       :name colname
                       :force-datatype? true
                       :missing missing}))

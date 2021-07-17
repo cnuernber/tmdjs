@@ -19,15 +19,23 @@
   PersistentArrayMap
   (-datatype [item] :persistent-map)
   PersistentHashMap
-  (-datatype [item] :persistent-map))
+  (-datatype [item] :persistent-map)
+  js/Date
+  (-datatype [item] :instant))
 
 
 (defprotocol PElemwiseDatatype
   (-elemwise-datatype [item]))
 
 
-(extend-type object
-  PElemwiseDatatype
+(extend-protocol PElemwiseDatatype
+  object
+  (-elemwise-datatype [item] (-datatype item))
+  string
+  (-elemwise-datatype [item] (-datatype item))
+  boolean
+  (-elemwise-datatype [item] (-datatype item))
+  number
   (-elemwise-datatype [item] (-datatype item)))
 
 

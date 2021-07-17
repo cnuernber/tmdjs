@@ -51,6 +51,7 @@
 
 
 (defn- parse-colmap
+  "Much faster/easier pathway"
   [data options]
   (let [{:keys [parser-fn parse-map*]} (options->parser-fn options)]
     (doseq [[k v] data]

@@ -19,16 +19,16 @@
 
 (defn elemwise-datatype
   [item]
-  (if item
-    (dtype-proto/-elemwise-datatype item)
-    :object))
+  (if (nil? item)
+    :object
+    (dtype-proto/-elemwise-datatype item)))
 
 
 (defn datatype
   [item]
-  (if item
-    (dtype-proto/-datatype item)
-    :object))
+  (if (nil? item)
+    :object
+    (dtype-proto/-datatype item)))
 
 
 (defn as-typed-array
@@ -82,7 +82,7 @@
 
 (defn as-agetable
   [data]
-  (when (dtype-proto/-convertible-to-agetable? data)
+  (when (and data (dtype-proto/-convertible-to-agetable? data))
     (dtype-proto/->agetable data)))
 
 

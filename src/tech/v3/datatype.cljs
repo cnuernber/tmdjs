@@ -54,6 +54,17 @@
   (dt-base/as-agetable item))
 
 
+(defn as-datatype-accurate-agetable
+  "Only reduce to an aget-able item of the datatypes match.  This avoids
+  throwing away js array wrappers that may do more checking and that can
+  accurately advertise elemwise datatypes."
+  [item]
+  (when-let [aget-item (as-agetable item)]
+    (when (= (elemwise-datatype item)
+             (elemwise-datatype aget-item))
+      aget-item)))
+
+
 (defn integer-range?
   [item]
   (dt-base/integer-range? item))
