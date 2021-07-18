@@ -15,6 +15,7 @@
 
 (defn ecount
   [item]
+  ;;just calls cljs.clone
   (dt-base/ecount item))
 
 
@@ -32,6 +33,11 @@
 (defn datatype
   [item]
   (dt-base/datatype item))
+
+
+(defn numeric-type?
+  [dtype]
+  (when dtype (casting/numeric-type? dtype)))
 
 
 (defn as-typed-array
@@ -123,6 +129,17 @@
   (dt-cmc/make-container dtype len-or-data))
 
 
+(defn ensure-typed-array
+  [item]
+  (let [item-dt (elemwise-datatype item)]
+    (when-not (numeric-type? item-dt)
+      (throw (js/Error. (str "Data is not a numeric datatype: " item-dt))))
+    (if-let [retval (or (as-typed-array item)
+                        (as-typed-array (make-container item-dt item)))]
+      retval
+      (throw (js/Error. "Unable to convert data to a typed array")))))
+
+
 (defn make-list
   "Make a list.  Lists implement the tech.v3.datatype.protocols/PListLike protocol -
   `-add`, `-add-all`"
@@ -142,6 +159,13 @@
   [list items]
   (dt-proto/-add-all list items)
   list)
+
+
+(defn ensure-capacity!
+  "Ensure the list has at least this much capacity without changing the number of
+  inserted items"
+  [list buflen]
+  (dt-proto/-ensure-capacity list buflen))
 
 
 (defn- maybe-min-count
@@ -182,9 +206,25 @@
 
 
 (defn ->js-set
-  "Create a javascript set.  These have superior performance when dealing with int32 indexes."
+  "Create a javascript set.  These have superior performance when dealing with numeric
+  data but they fail completely when dealing with clojure data such as persistent maps
+  or keywords"
   ([] (bitmap/->js-set))
   ([data] (bitmap/->js-set data)))
+
+
+(defn ->set
+  [data]
+  (cond
+    (or (set? data)
+        (instance? js/Set data))
+    data
+    (nil? data)
+    (set nil)
+    (numeric-type? (elemwise-datatype data))
+    (->js-set data)
+    :else
+    (set data)))
 
 
 (defn set-or
@@ -211,6 +251,19 @@
   "Create an ordered int32 buffer of the items in the set."
   [data]
   (bitmap/set->ordered-indexes data))
+
+
+(defn set-predicate
+  [set]
+  (if (instance? js/Set set)
+    #(.has set %)
+    set))
+
+(defn set-predicate-complement
+  [set]
+  (if (instance? js/Set set)
+    #(not (.has set %))
+    #(not (set %))))
 
 
 (defn indexed-buffer

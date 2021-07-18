@@ -200,6 +200,11 @@
         not-found))))
 
 
+(defn make-boolean-array
+  [buf]
+  (BooleanArray. buf nil))
+
+
 (declare make-typed-buffer)
 
 
@@ -219,10 +224,10 @@
   (->typed-array [item] (dtype-proto/->typed-array buf))
   dtype-proto/PSubBufferCopy
   (-sub-buffer-copy [item off len]
-    (make-typed-buffer (dt-base/sub-buffer-copy item off len) elem-dtype metadata))
+    (make-typed-buffer (dt-base/sub-buffer-copy buf off len) elem-dtype metadata))
   dtype-proto/PSubBuffer
   (-sub-buffer [item off len]
-    (make-typed-buffer (dt-base/sub-buffer item off len) elem-dtype metadata))
+    (make-typed-buffer (dt-base/sub-buffer buf off len) elem-dtype metadata))
   dtype-proto/PSetValue
   (-set-value! [item idx data]
     (dtype-proto/-set-value! buf idx data)

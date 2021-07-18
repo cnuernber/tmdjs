@@ -41,7 +41,9 @@
     this)
   (-add-all [this data]
     (dtype/iterate! #(dt-proto/-add this %) data)
-    this))
+    this)
+  (-ensure-capacity [this buflen]
+    (dt-proto/-ensure-capacity container buflen)))
 
 
 (defn make-string-table

@@ -103,9 +103,10 @@
 
   (^clj -assoc [coll k v]
    (let [row-count (ds-proto/-row-count coll)
-         v (->column v k (if (== 0 row-count)
-                           nil
-                           row-count))]
+         v (-> (->column v k (if (== 0 row-count)
+                               nil
+                               row-count))
+               (vary-meta assoc :name k))]
      (if-let [col-idx (get colname->col k)]
        (let [n-col-ary (assoc col-ary col-idx v)]
          (Dataset. n-col-ary colname->col metadata))
@@ -113,7 +114,6 @@
              n-col-ary (conj col-ary v)
              n-colname->col (assoc colname->col k col-idx)]
          (Dataset. n-col-ary n-colname->col metadata)))))
-
   IMap
   (^clj -dissoc [coll k]
    (if-let [col-idx (get colname->col k)]

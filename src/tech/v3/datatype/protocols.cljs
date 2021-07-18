@@ -111,7 +111,8 @@
 
 (defprotocol PListLike
   (-add [this elem])
-  (-add-all [this container]))
+  (-add-all [this container])
+  (-ensure-capacity [this capacity]))
 
 
 (defprotocol PBitmapSet

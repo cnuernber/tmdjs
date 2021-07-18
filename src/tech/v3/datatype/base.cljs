@@ -159,6 +159,10 @@
     (cond
       (integer-range? item)
       (indexed-iterate-range! consume-fn item)
+      (indexed? item)
+      (let [n-elems (count item)]
+        (dotimes [idx n-elems]
+          (consume-fn idx (nth item idx))))
       (as-iterable item)
       (let [vals (.values item)]
         (loop [data (.next vals)
@@ -172,7 +176,7 @@
                item (rest item)
                idx 0]
           (consume-fn idx val)
-          (when item
+          (when (seq item)
             (recur (first item) (rest item) (unchecked-inc idx)))))))
   consume-fn)
 

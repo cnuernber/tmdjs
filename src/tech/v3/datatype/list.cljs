@@ -117,6 +117,17 @@
       ;;For sequences we just add the data directly
       (doseq [data container]
         (dt-proto/-add this data)))
+    this)
+  (-ensure-capacity [this capacity]
+    (when (< buflen capacity)
+      (let [new-len buflen
+            new-buf (dt-cmc/make-container dtype new-len)
+            abuf (dt-base/as-agetable new-buf)
+            new-agetable? (boolean abuf)]
+        (dt-base/set-value! new-buf 0 buf)
+        (set! buf (or abuf new-buf))
+        (set! agetable? new-agetable?)
+        (set! buflen new-len)))
     this))
 
 

@@ -6,7 +6,8 @@
   (:require [tech.v3.datatype :as dtype]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.protocols :as dt-proto]
-            [tech.v3.dataset.impl.column :as dt-col]))
+            [tech.v3.dataset.impl.column :as dt-col]
+            [base64-js :as b64]))
 
 
 (defprotocol PParser
