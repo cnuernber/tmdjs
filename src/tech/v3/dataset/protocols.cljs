@@ -32,4 +32,6 @@
   PRowCount
   (-row-count [this] (count this))
   PColumnCount
-  (-column-count [this] 0))
+  (-column-count [this] 0)
+  PDataset
+  (-is-dataset? [item] false))

@@ -563,10 +563,12 @@ user> (ds/missing (*1 :c))
                (let [cols (columns update-ds)
                      coldata (apply dtype/emap map-fn res-dtype (columns update-ds))
                      missing (when-let [missing-fn (opt-map :missing-fn)] (missing-fn cols))]
-                 (assoc update-ds result-colname
-                        #:tech.v3.dataset{:data coldata
-                                          :missing missing
-                                          :name result-colname}))))))
+                 (if missing
+                   (assoc update-ds result-colname
+                          #:tech.v3.dataset{:data coldata
+                                            :missing missing
+                                            :name result-colname})
+                   (assoc update-ds result-colname coldata)))))))
   ([dataset result-colname map-fn filter-fn-or-ds]
    (column-map dataset result-colname map-fn nil filter-fn-or-ds))
   ([dataset result-colname map-fn]
@@ -682,8 +684,8 @@ user> (ds/missing (*1 :c))
                                 (str-data->coldata data)
                                 :else
                                 (if (instance? js/Array data)
-                                  data
-                                  (dtype/as-agetable (dtype/make-container :object data))))
+                                  (arrays/make-typed-buffer data dtype)
+                                  (dtype/as-agetable (dtype/make-container dtype data))))
                               :name (:name metadata)})))
        (ds-impl/new-dataset (:metadata ds-data))))
 

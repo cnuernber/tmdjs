@@ -20,6 +20,8 @@
   (-datatype [item] :persistent-map)
   PersistentHashMap
   (-datatype [item] :persistent-map)
+  PersistentVector
+  (-datatype [item] :persistent-vector)
   js/Date
   (-datatype [item] :instant))
 

@@ -88,10 +88,10 @@
     (cond
       (number? data)
       (aset item idx data)
-      (or (accent-arrays/typed-array? data)
-          (dtype-proto/-convertible-to-js-array? data))
-      (dotimes [didx (count data)]
-        (aset item (+ idx didx) (aget data didx)))
+      (dt-base/as-agetable data)
+      (let [data (dt-base/as-agetable data)]
+        (dotimes [didx (count data)]
+          (aset item (+ idx didx) (aget data didx))))
       (dt-base/integer-range? data)
       (let [start (aget data "start")
             step (aget data "step")

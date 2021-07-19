@@ -10,7 +10,7 @@
             [tech.v3.datatype.bitmap :as bitmap]
             [tech.v3.dataset.format-sequence :as fmt]
             [clojure.string :as s])
-  (:refer-clojure :exclude [clone counted?]))
+  (:refer-clojure :exclude [clone counted? indexed?]))
 
 
 (defn ecount
@@ -104,6 +104,11 @@
   (dt-base/counted? item))
 
 
+(defn indexed?
+  [item]
+  (dt-base/indexed? item))
+
+
 (defn set-value!
   [item idx data]
   (dt-base/set-value! item idx data))
@@ -188,21 +193,6 @@
     (doseq [item (apply map map-fn args)]
       (dt-proto/-add retval item))
     retval))
-
-
-(defn emap
-  "non-lazy elementwise map a function over a sequences.  Returns a countable/indexable array
-  of results."
-  [map-fn ret-dtype & args]
-  (let [ret-dtype (or ret-dtype (reduce casting/widest-datatype (map elemwise-datatype args)))]
-    (if (= 1 (count args))
-      ;;special case out of we can use array.map or typed-array.map
-      (let [arg (first args)
-            aarg (dt-base/as-agetable arg)]
-        (if (and aarg (= ret-dtype (elemwise-datatype arg)))
-          (dt-arrays/make-typed-buffer (.map aarg map-fn) ret-dtype)
-          (emap-list map-fn ret-dtype args)))
-      (emap-list map-fn ret-dtype args))))
 
 
 (defn ->js-set
@@ -317,3 +307,41 @@
     dt-proto/PSubBuffer
     (-sub-buffer [rdr off len]
       (reify-reader len dtype #(idx->val-fn (+ % off))))))
+
+
+(defn emap
+  "elementwise map a function over a sequences.  Returns a countable/indexable array
+  of results."
+  [map-fn ret-dtype & args]
+  (if (= 0 (count args))
+    (throw (js/Error. "No args provided, not a transducing function")))
+  (let [ret-dtype (or ret-dtype (reduce casting/widest-datatype
+                                        (map elemwise-datatype args)))]
+    (if (every? indexed? args)
+      (let [n-elems (apply min (map count args))]
+        (case (count args)
+          1  (let [arg (first args)
+                   aarg (dt-base/as-agetable arg)]
+               (reify-reader n-elems ret-dtype (if aarg
+                                                 #(map-fn (aget aarg %))
+                                                 #(map-fn (nth arg %)))))
+          2 (let [arg1 (first args)
+                  arg2 (second args)]
+              (reify-reader n-elems ret-dtype #(map-fn (nth arg1 %)
+                                                       (nth arg2 %))))
+          3 (let [arg1 (nth args 0)
+                  arg2 (nth args 1)
+                  arg3 (nth args 3)]
+              (reify-reader n-elems ret-dtype #(map-fn (nth arg1 %)
+                                                       (nth arg2 %)
+                                                       (nth arg3 %))))
+          (reify-reader n-elems
+                        ret-dtype
+                        (fn [idx] (apply map-fn (map #(nth % idx) args))))))
+      (if (= ret-dtype :object)
+        (apply map map-fn args)
+        (reify
+          ISeqable
+          (-seq [r] (apply map map-fn args))
+          dt-proto/PElemwiseDatatype
+          (-elemwise-datatype [this] ret-dtype))))))

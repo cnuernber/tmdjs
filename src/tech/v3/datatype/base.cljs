@@ -1,6 +1,6 @@
 (ns tech.v3.datatype.base
   (:require [tech.v3.datatype.protocols :as dtype-proto])
-  (:refer-clojure :exclude [clone counted?]))
+  (:refer-clojure :exclude [clone counted? indexed?]))
 
 
 (defn ecount
@@ -70,6 +70,14 @@
     (if (instance? js/Array item)
       true
       (cljs.core/counted? item))))
+
+
+(defn indexed?
+  [item]
+  (when item
+    (if (instance? js/Array item)
+      true
+      (cljs.core/indexed? item))))
 
 
 (defn ensure-indexable

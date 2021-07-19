@@ -7,8 +7,8 @@
   [dtype len-or-data]
   (let [data (if (number? len-or-data)
                nil
-               (if (and (counted? len-or-data)
-                        (indexed? len-or-data))
+               (if (and (dt-base/counted? len-or-data)
+                        (dt-base/indexed? len-or-data))
                  len-or-data
                  (vec len-or-data)))
         dlen (if (number? len-or-data)

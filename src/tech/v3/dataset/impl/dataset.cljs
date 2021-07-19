@@ -41,6 +41,13 @@
     missing))
 
 
+(defn- scan-data
+  [data colname n-rows]
+  (let [pparser (col-parsers/promotional-object-parser colname)]
+    (dtype/add-all! pparser (take n-rows data))
+    (col-parsers/-finalize pparser n-rows)))
+
+
 (defn ->column
   [data & [colname n-rows]]
   (if (ds-proto/-is-column? data)
@@ -52,15 +59,26 @@
                       :_unnamed)
           colmap (cond
                    (and (map? data) (contains? data :tech.v3.dataset/data))
-                   data
+                   (let [{:keys [tech.v3.dataset/data tech.v3.dataset/force-datatype?]
+                          :as data-map} data
+                         n-rows (or n-rows (when (dtype/counted? data) (count data)))
+                         data-map (if (and (= :object (dtype/elemwise-datatype data))
+                                           (not force-datatype?))
+                                    (merge data-map
+                                           (scan-data data colname n-rows))
+                                    data-map)
+                         missing (data-map :tech.v3.dataset/missing)
+                         missing (if-not missing
+                                   (scan-missing (data-map :tech.v3.dataset/data))
+                                   missing)]
+                     (assoc data-map
+                            :tech.v3.dataset/missing missing
+                            :tech.v3.dataset/force-datatype? true))
                    (or (= :iterable darg) (= :object dtype))
-                   (do
-                     (let [n-rows (or n-rows (when (dtype/counted? data)
-                                               (count data)))]
-                       (when-not n-rows (throw (js/Error. "Potentially infinite iteration")))
-                       (let [pparser (col-parsers/promotional-object-parser colname)]
-                         (dtype/add-all! pparser (take n-rows data))
-                         (col-parsers/-finalize pparser n-rows))))
+                   (let [n-rows (or n-rows (when (dtype/counted? data)
+                                             (count data)))]
+                     (when-not n-rows (throw (js/Error. "Potentially infinite iteration")))
+                     (scan-data data colname n-rows))
                    (= :reader darg)
                    (let [n-rows (or n-rows (count data))]
                      (let [data (extend-data data n-rows)]
@@ -77,12 +95,12 @@
                                        :missing missing
                                        :name colname}))]
       (let [{:keys [tech.v3.dataset/name tech.v3.dataset/data
-                    tech.v3.dataset/missing tech.v3.dataset/metadata]} colmap]
-        (let [missing (or missing (js/set.))
-              name (or colname name :_unnamed)]
-          (col-impl/new-column data missing (casting/numeric-type?
-                                             (dtype/elemwise-datatype data))
-                               (assoc metadata :name name)))))))
+                    tech.v3.dataset/missing tech.v3.dataset/metadata]} colmap
+            missing (or missing (js/Set.))
+            name (or colname name :_unnamed)]
+        (col-impl/new-column data missing (casting/numeric-type?
+                                           (dtype/elemwise-datatype data))
+                             (assoc metadata :name name))))))
 
 
 (declare cols->str)
@@ -164,6 +182,18 @@
                         " " (ds-proto/-column-count array) "]\n"
                         (cols->str col-ary (merge opts metadata))
                         "]")))
+
+  ICollection
+  (-conj [coll o]
+    (when-not (or (ds-proto/-is-column? o)
+                  (ds-proto/-is-dataset? o))
+      (throw (js/Error. "Only columns or datasets can be conj'd onto a dataset")))
+    (if (ds-proto/-is-column? o)
+      (assoc coll (name o) o)
+      (reduce (fn [coll col]
+                (assoc coll (name col) col))
+              coll
+              (vals o))))
 
   ds-proto/PRowCount
   (-row-count [this]

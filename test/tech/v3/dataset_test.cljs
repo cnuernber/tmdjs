@@ -28,3 +28,30 @@
                                                              (range 100)))})]
     (is (= #{100 101} (ds/missing ds)))
     (is (= 202 (ds/row-count ds)))))
+
+
+(deftest colum-map-test
+  (let [ds (-> (ds/->dataset {:a (range 10)})
+               (ds/column-map :b (partial + 2)))]
+    (is (= 45 (apply + (ds :a))))
+    (is (= 65 (apply + (ds :b))))))
+
+
+(defn master-ds
+  []
+  (ds/->dataset {:a (range 5)
+                 :b (repeat 5 :a)
+                 :c (repeat 5 "hey")
+                 :d (repeat 5 {:a 1 :b 2})
+                 :e (repeat 4 [1 2 3])}))
+
+
+(deftest serialize-test
+  (let [ds (master-ds)
+        json-data (ds/dataset->json ds)
+        nds (ds/json->dataset json-data)]
+    (is (= (vec (range 5))
+           (vec (nds :a))))
+    (is (= #{4} (ds/missing nds)))
+    (is (= (mapv (comp :datatype meta) (vals ds))
+           (mapv (comp :datatype meta) (vals nds))))))
