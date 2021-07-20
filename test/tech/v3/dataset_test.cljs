@@ -72,6 +72,16 @@
     (is (= [20 2 20 20 20 6 20] ((ds/replace-missing ds :all [:value 20]) :a)))))
 
 
+(deftest replace-missing-str
+  (let [ds (ds/->dataset {:a [nil "hey" nil nil nil "you" nil]})]
+    (is (= ["hey" "hey" "hey" "hey" "hey" "you" "you"]
+           ((ds/replace-missing ds :all :first) :a)))
+    (is (= ["hey" "hey" "you" "you" "you" "you" "you"]
+           ((ds/replace-missing ds :all :last) :a)))
+    (is (= ["guys" "hey" "guys" "guys" "guys" "you" "guys"]
+           ((ds/replace-missing ds :all [:value "guys"]) :a)))))
+
+
 (deftest concat-missing
   (let [ds (ds/->dataset {:a [nil 2 nil nil nil 6 nil]})
         ds (ds/concat ds ds)]
