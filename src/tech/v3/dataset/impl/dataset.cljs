@@ -2,6 +2,7 @@
   (:require [tech.v3.datatype.argtypes :as argtypes]
             [tech.v3.datatype :as dtype]
             [tech.v3.datatype.casting :as casting]
+            [tech.v3.datatype.arrays :as dt-arrays]
             [tech.v3.datatype.protocols :as dt-proto]
             [tech.v3.dataset.impl.column :as col-impl]
             [tech.v3.dataset.io.column-parsers :as col-parsers]
@@ -98,22 +99,24 @@
                     tech.v3.dataset/missing tech.v3.dataset/metadata]} colmap
             missing (or missing (js/Set.))
             name (or colname name :_unnamed)]
-        (col-impl/new-column data missing (casting/numeric-type?
-                                           (dtype/elemwise-datatype data))
-                             (assoc metadata :name name))))))
+        (col-impl/new-column data missing
+                             (assoc metadata :name name)
+                             (casting/numeric-type?
+                              (dtype/elemwise-datatype data)))))))
 
 
 (declare cols->str)
 
 
+(declare make-dataset)
 
-(deftype Dataset [col-ary colname->col metadata]
+(deftype Dataset [col-ary colname->col metadata ^:mutable hashcode]
   ICounted
   (-count [this] (count col-ary))
 
   ICloneable
   (-clone [this]
-    (Dataset. (mapv clone col-ary) colname->col metadata))
+    (make-dataset (mapv clone col-ary) colname->col metadata))
 
   IAssociative
   (^boolean -contains-key? [coll k]
@@ -127,20 +130,21 @@
                (vary-meta assoc :name k))]
      (if-let [col-idx (get colname->col k)]
        (let [n-col-ary (assoc col-ary col-idx v)]
-         (Dataset. n-col-ary colname->col metadata))
+         (make-dataset n-col-ary colname->col metadata))
        (let [col-idx (count col-ary)
              n-col-ary (conj col-ary v)
              n-colname->col (assoc colname->col k col-idx)]
-         (Dataset. n-col-ary n-colname->col metadata)))))
+         (make-dataset n-col-ary n-colname->col metadata)))))
   IMap
   (^clj -dissoc [coll k]
    (if-let [col-idx (get colname->col k)]
      (let [n-col-ary (vec (concat (subvec col-ary 0 col-idx)
                                   (subvec col-ary (inc col-idx))))
-           n-col-map (->> (map-indexed (fn [idx col]
-                                         [(:name (meta col)) idx]))
+           n-col-map (->> n-col-ary
+                          (map-indexed (fn [idx col]
+                                         [(name col) idx]))
                           (into {}))]
-       (Dataset. n-col-ary n-col-map metadata))
+       (make-dataset n-col-ary n-col-map metadata))
      coll))
 
   ILookup
@@ -160,7 +164,7 @@
                        :column-count (ds-proto/-column-count coll)))
   IWithMeta
   (-with-meta [coll new-meta]
-    (Dataset. col-ary colname->col new-meta))
+    (make-dataset col-ary colname->col new-meta))
 
   INamed
   (-name [this] (:name metadata))
@@ -173,7 +177,7 @@
   (-rest [this] (rest col-ary))
 
   IEmptyableCollection
-  (-empty [coll] (Dataset. [] {} metadata))
+  (-empty [coll] (make-dataset [] {} metadata))
 
   IPrintWithWriter
   (-pr-writer [array writer opts]
@@ -194,6 +198,39 @@
                 (assoc coll (name col) col))
               coll
               (vals o))))
+
+  IHash
+  (-hash [this]
+    (when-not hashcode
+      (set! hashcode
+            (let [n-elems (count col-ary)]
+              (loop [idx 0
+                     hash-code 1]
+                (if (< idx n-elems)
+                  (let [col (nth col-ary idx)]
+                    (recur (unchecked-inc idx)
+                           (-> hash-code
+                               (dt-arrays/hash-next (hash (name col)))
+                               (dt-arrays/hash-next (hash col)))))
+                  (mix-collection-hash hash-code n-elems))))))
+    hashcode)
+
+  IEquiv
+  (-equiv [this other]
+    (if (and (ds-proto/-is-dataset? other)
+             (= (ds-proto/-row-count this)
+                (ds-proto/-row-count other))
+             (= (ds-proto/-column-count this)
+                (ds-proto/-column-count other)))
+      (let [mycols (vals this)
+            othercols (vals other)]
+        (and (= (mapv name mycols)
+                (mapv name othercols))
+             (= mycols othercols)))
+      false))
+
+  IIterable
+  (-iterator [this] (dt-arrays/nth-iter col-ary))
 
   ds-proto/PRowCount
   (-row-count [this]
@@ -221,7 +258,7 @@
 
   ds-proto/PSelectRows
   (-select-rows [this rowidxes]
-    (Dataset. (mapv #(ds-proto/-select-rows % rowidxes) col-ary) colname->col metadata))
+    (make-dataset (mapv #(ds-proto/-select-rows % rowidxes) col-ary) colname->col metadata))
 
   ds-proto/PSelectColumns
   (-select-columns [this colnames]
@@ -230,7 +267,7 @@
                         (map-indexed (fn [idx cname]
                                        [cname idx]))
                         (into {}))]
-      (Dataset. n-col-ary n-colmap metadata))))
+      (make-dataset n-col-ary n-colmap metadata))))
 
 
 (defn- reader->string-lines
@@ -358,6 +395,12 @@ as an options map.  The options map overrides the dataset metadata.
       (str/join "\n" builder))))
 
 
+(defn- make-dataset
+  "private dataset api"
+  [col-ary colmap metadata]
+  (Dataset. col-ary colmap metadata nil))
+
+
 (defn new-dataset
   ([metadata colseq]
    (let [metadata (if (map? metadata)
@@ -399,7 +442,7 @@ as an options map.  The options map overrides the dataset metadata.
                      (map-indexed (fn [idx col]
                                     [(name col) idx]))
                      (into {}))]
-     (Dataset. columns colmap metadata)))
+     (make-dataset columns colmap metadata)))
   ([colseq]
    (new-dataset {:name "unnamed"} colseq))
   ([] (new-dataset {:name "unnamed"} nil)))

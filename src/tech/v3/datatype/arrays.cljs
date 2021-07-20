@@ -5,6 +5,7 @@
             [tech.v3.datatype.argtypes :as argtypes])
   (:refer-clojure :exclude [make-array]))
 
+(set! *unchecked-arrays* true)
 
 (def ary-types
   {js/Int8Array :int8
@@ -18,6 +19,118 @@
    js/Float64Array :float64})
 
 (def typed-array-types (set (map second ary-types)))
+
+
+(defn hash-next
+  [hashcode nexthash]
+  (bit-or (+ (imul 31 hashcode) nexthash) 0))
+
+
+(defn hash-agetable
+  [item]
+  (let [item (dt-base/as-agetable item)
+        n-elems (count item)]
+    (loop [idx 0
+           hash-code 1]
+      (if (< idx n-elems)
+        (recur (unchecked-inc idx)
+               (bit-or (+ (imul 31 hash-code) (hash (aget item idx))) 0))
+        (mix-collection-hash hash-code n-elems)))))
+
+
+(defn hash-nthable
+  [item]
+  (let [n-elems (count item)]
+    (loop [idx 0
+           hash-code 1]
+      (if (< idx n-elems)
+        (recur (unchecked-inc idx)
+               (bit-or (+ (imul 31 hash-code) (hash (nth item idx))) 0))
+        (mix-collection-hash hash-code n-elems)))))
+
+
+(defn equiv-agetable
+  [this other]
+  (let [this (dt-base/as-agetable this)
+        n-elems (count this)]
+    ;;ecount accounts for nil
+    (if (and this (== n-elems (dt-base/ecount other)))
+      (if-let [other (dt-base/as-agetable other)]
+        (loop [idx 0]
+          (if (< idx n-elems)
+            (if (= (aget this idx)
+                   (aget other idx))
+              (recur (inc idx))
+              false)
+            true))
+        (loop [idx 0]
+          (if (< idx n-elems)
+            (if (= (aget this idx)
+                   (nth other idx))
+              (recur (inc idx))
+              false)
+            true)))
+      false)))
+
+
+(defn equiv-nthable
+  [this other]
+  (let [n-elems (count this)]
+    ;;ecount accounts for nil
+    (if (and this (== n-elems (dt-base/ecount other)))
+      (if-let [other (dt-base/as-agetable other)]
+        (loop [idx 0]
+          (if (< idx n-elems)
+            (if (= (nth this idx)
+                   (aget other idx))
+              (recur (inc idx))
+              false)
+            true))
+        (loop [idx 0]
+          (if (< idx n-elems)
+            (if (= (nth this idx)
+                   (nth other idx))
+              (recur (inc idx))
+              false)
+            true)))
+      false)))
+
+
+(deftype AgetIter [data n-elems ^:unsynchronized-mutable i]
+  Object
+  (hasNext [this]
+    (< i n-elems))
+  (next [this]
+    (let [ret (aget data i)]
+      (set! i (inc i))
+      ret)))
+
+(defn aget-iter
+  [data]
+  (if-let [data (dt-base/as-agetable data)]
+    (AgetIter. data (count data) 0)
+    (throw (js/Error. "Data is not agetable"))))
+
+
+(deftype NthIter [data n-elems ^:unsynchronized-mutable i]
+  Object
+  (hasNext [this]
+    (< i n-elems))
+  (next [this]
+    (let [ret (nth data i)]
+      (set! i (inc i))
+      ret)))
+
+(defn nth-iter
+  [data]
+  (NthIter. data (count data) 0))
+
+
+(defn index-iter
+  [data]
+  (if-let [data (dt-base/as-agetable data)]
+    (aget-iter data)
+    (nth-iter data)))
 
 
 (doseq [ary-type (map first ary-types)]
@@ -35,6 +148,11 @@
     dtype-proto/PSubBuffer
     (-sub-buffer [item off len]
       (.subarray item off (+ off len)))
+    IHash
+    (-hash [o] (hash-agetable o))
+    IEquiv
+    (-equiv [this other]
+      (equiv-agetable this other))
     ICloneable
     (-clone [item]
       (let [len (aget item "length")
@@ -83,6 +201,11 @@
     (.slice item off (+ off len)))
   ICloneable
   (-clone [item] (.slice item 0 (count item)))
+  IHash
+  (-hash [o] (hash-agetable o))
+  IEquiv
+  (-equiv [this other]
+    (equiv-agetable this other))
   dtype-proto/PSetValue
   (-set-value! [item idx data]
     (cond
@@ -138,20 +261,23 @@
   [val]
   (if (== 0 val) false true))
 
+
+(declare make-boolean-array)
+
 ;;Booleans are stored as 1,0 bytes.
-(deftype BooleanArray [buf metadata]
+(deftype BooleanArray [buf metadata ^:unsynchronized-mutable hashcode]
   ICounted
   (-count [item] (count buf))
   ICloneable
-  (-clone [item] (BooleanArray. (clone buf) metadata))
+  (-clone [item] (make-boolean-array (clone buf) metadata))
   dtype-proto/PElemwiseDatatype
   (-elemwise-datatype [item] :boolean)
   dtype-proto/PSubBufferCopy
   (-sub-buffer-copy [item off len]
-    (BooleanArray. (dtype-proto/-sub-buffer-copy buf off len) metadata))
+    (make-boolean-array (dtype-proto/-sub-buffer-copy buf off len) metadata))
   dtype-proto/PSubBuffer
   (-sub-buffer [item off len]
-    (BooleanArray. (dtype-proto/-sub-buffer buf off len) metadata))
+    (make-boolean-array (dtype-proto/-sub-buffer buf off len) metadata))
   dtype-proto/PSetValue
   (-set-value! [item idx data]
     (dtype-proto/-set-value! buf idx (booleans->bytes data))
@@ -161,6 +287,16 @@
     (dtype-proto/-set-constant! buf offset elem-count
                                 (booleans->bytes data))
     item)
+  IHash
+  (-hash [o]
+    (when-not hashcode
+      (set! hashcode (hash-nthable o)))
+    hashcode)
+  IEquiv
+  (-equiv [this other]
+    (equiv-nthable this other))
+  IIterable
+  (-iterator [this] (nth-iter this))
   dtype-proto/PToTypedArray
   (-convertible-to-typed-array? [this] true)
   (->typed-array [this] buf)
@@ -172,7 +308,7 @@
   (-with-meta [coll new-meta]
     (if (identical? new-meta metadata)
       coll
-      (BooleanArray. buf new-meta)))
+      (BooleanArray. buf new-meta nil)))
   IMeta
   (-meta [coll] metadata)
   IPrintWithWriter
@@ -201,15 +337,15 @@
 
 
 (defn make-boolean-array
-  [buf]
-  (BooleanArray. buf nil))
+  [buf & [metadata]]
+  (BooleanArray. buf metadata nil))
 
 
 (declare make-typed-buffer)
 
 
 ;;Necessary to add an actual datatype to a js array and metadata to typed arrays
-(deftype TypedBuffer [buf elem-dtype metadata]
+(deftype TypedBuffer [buf elem-dtype metadata ^:unsynchronized-mutable hashcode]
   ICounted
   (-count [item] (count buf))
   ICloneable
@@ -247,7 +383,6 @@
   (-pr-writer [array writer opts]
     (-write writer (str "#typed-buffer[" elem-dtype "]"
                         (take 20 (array-seq buf)))))
-  ISequential
   ISeqable
   (-seq [array] (array-seq buf))
   ISeq
@@ -265,13 +400,29 @@
     (let [n (if (< n 0) (+ (count array) n) n)]
       (if (< n (count buf))
         (nth buf n)
-        not-found))))
+        not-found)))
+  ISequential
+  IHash
+  (-hash [o]
+    (when-not hashcode
+      (set! hashcode
+            (if-let [aget-buf (dt-base/as-agetable buf)]
+              (hash-agetable aget-buf)
+              (hash-nthable buf))))
+    hashcode)
+  IEquiv
+  (-equiv [this other]
+    (if-let [aget-buf (dt-base/as-agetable buf)]
+      (equiv-agetable aget-buf other)
+      (equiv-nthable buf other)))
+  IIterable
+  (-iterator [this] (index-iter buf)))
 
 
 (defn make-typed-buffer
   [buf & [dtype metadata]]
   (let [dtype (or dtype (dt-base/elemwise-datatype buf))]
-    (TypedBuffer. buf dtype metadata)))
+    (TypedBuffer. buf dtype metadata nil)))
 
 ;;Shorthand as this is very common
 (defn tbuf [item] (make-typed-buffer item))
@@ -280,7 +431,7 @@
 (defn make-array
   [dtype len]
   (if (= dtype :boolean)
-    (BooleanArray. (js/Int8Array.  len) nil)
+    (make-boolean-array (js/Int8Array.  len) nil)
     (-> (case dtype
           :int8 (js/Int8Array. len)
           :uint8 (js/Uint8Array. len)

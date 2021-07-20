@@ -48,10 +48,32 @@
 
 (deftest serialize-test
   (let [ds (master-ds)
-        json-data (ds/dataset->json ds)
-        nds (ds/json->dataset json-data)]
+        json-data (ds/dataset->transit-str ds)
+        nds (ds/transit-str->dataset json-data)]
     (is (= (vec (range 5))
            (vec (nds :a))))
     (is (= #{4} (ds/missing nds)))
     (is (= (mapv (comp :datatype meta) (vals ds))
            (mapv (comp :datatype meta) (vals nds))))))
+
+
+(deftest hashcode-equiv
+  (is (= (master-ds) (master-ds)))
+  (is (not= (master-ds) (ds/rename-columns (master-ds) {:a :aa})))
+  (is (= (hash (master-ds)) (hash (master-ds))))
+  (is (not= (hash (master-ds)) (hash (ds/rename-columns (master-ds) {:a :aa})))))
+
+
+(deftest replace-missing
+  (let [ds (ds/->dataset {:a [nil 2 nil nil nil 6 nil]})]
+    (is (= [2 2 2 2 2 6 6] ((ds/replace-missing ds :all :first) :a)))
+    (is (= [2 2 6 6 6 6 6] ((ds/replace-missing ds :all :last) :a)))
+    (is (= [2 2 3 4 5 6 6] ((ds/replace-missing ds :all :lerp) :a)))
+    (is (= [20 2 20 20 20 6 20] ((ds/replace-missing ds :all [:value 20]) :a)))))
+
+
+(deftest concat-missing
+  (let [ds (ds/->dataset {:a [nil 2 nil nil nil 6 nil]})
+        ds (ds/concat ds ds)]
+    (is (= [20 2 20 20 20 6 20 20 2 20 20 20 6 20]
+           ((ds/replace-missing ds :all [:value 20]) :a)))))

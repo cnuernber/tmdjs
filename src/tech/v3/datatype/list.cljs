@@ -13,6 +13,7 @@
                         dtype
                         ^:unsynchronized-mutable ptr
                         ^:unsynchronized-mutable buflen
+                        ^:unsynchronized-mutable hashcode
                         metadata]
   ICounted
   (-count [this] ptr)
@@ -50,6 +51,19 @@
       (if (< n n-ary)
         (nth buf n)
         not-found)))
+  IHash
+  (-hash [o]
+    (when-not hashcode
+      (set! hashcode (dt-arrays/hash-nthable o)))
+    hashcode)
+
+  IEquiv
+  (-equiv [this other]
+    (dt-arrays/equiv-nthable this other))
+
+  IIterable
+  (-iterator [this] (dt-arrays/nth-iter this))
+
   dt-proto/PElemwiseDatatype
   (-elemwise-datatype [this] dtype)
   dt-proto/PDatatype
@@ -138,7 +152,7 @@
         buflen (count buf)
         abuf (dt-base/as-agetable buf)
         agetable? (if abuf true false)]
-    (PrimitiveList. (or abuf buf) agetable? dtype ptr buflen metadata)))
+    (PrimitiveList. (or abuf buf) agetable? dtype ptr buflen metadata nil)))
 
 
 (defn make-list

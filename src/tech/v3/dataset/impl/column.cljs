@@ -3,6 +3,7 @@
   (:require [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype :as dtype]
             [tech.v3.datatype.argtypes :as argtypes]
+            [tech.v3.datatype.arrays :as dt-arrays]
             [tech.v3.datatype.protocols :as dt-proto]
             [tech.v3.dataset.format-sequence :as fmt]
             [tech.v3.dataset.string-table :as strt]
@@ -53,11 +54,14 @@
         (range rstart rend (aget rng "step"))))))
 
 
-(deftype Column [buf missing metadata numeric?]
+(declare new-column)
+
+
+(deftype Column [buf missing metadata numeric? ^:mutable hashcode]
   ICounted
   (-count [this] (count buf))
   ICloneable
-  (-clone [this] (Column. (clone  buf) (clone missing) metadata numeric?))
+  (-clone [this] (new-column (clone  buf) (clone missing) metadata numeric?))
   IFn
   (-invoke [this n] (nth this n))
   IIndexed
@@ -79,7 +83,7 @@
   (-with-meta [coll new-meta]
     (if (identical? new-meta metadata)
       coll
-      (Column. buf missing new-meta numeric?)))
+      (new-column buf missing new-meta numeric?)))
   IMeta
   (-meta [coll]
     (assoc metadata
@@ -101,6 +105,17 @@
                           "[" dstr "]]"))))
   INamed
   (-name [this] (:name metadata))
+  ISequential
+  IHash
+  (-hash [o]
+    (when-not hashcode
+      (set! hashcode (dt-arrays/hash-nthable o)))
+    hashcode)
+  IEquiv
+  (-equiv [this other]
+    (dt-arrays/equiv-nthable this other))
+  IIterable
+  (-iterator [this] (dt-arrays/nth-iter this))
   dt-proto/PElemwiseDatatype
   (-elemwise-datatype [this] (dtype/elemwise-datatype buf))
   dt-proto/PDatatype
@@ -147,9 +162,9 @@
          #(when (.has missing %2)
             (.add new-missing %1))
          rowidxs))
-      (Column. (dtype/indexed-buffer rowidxs buf) new-missing metadata numeric?))))
+      (new-column (dtype/indexed-buffer rowidxs buf) new-missing metadata numeric?))))
 
 
 (defn new-column
-  [buf missing numeric? metadata]
-  (Column. buf missing metadata numeric?))
+  [buf missing metadata numeric?]
+  (Column. buf missing metadata numeric? nil))

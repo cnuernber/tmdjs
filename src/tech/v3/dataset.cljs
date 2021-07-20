@@ -195,7 +195,7 @@
   (->> (columns ds)
        (map (fn [col]
               (let [cname (get rename-map (name col) (name col))]
-                (vary-meta col :name cname))))
+                (vary-meta col assoc :name cname))))
        (ds-impl/new-dataset (meta ds))))
 
 
@@ -664,6 +664,8 @@ user> (ds/missing (*1 :c))
           (let [dtype (:datatype metadata)]
             #:tech.v3.dataset{:metadata metadata
                               :missing (dtype/->js-set missing)
+                              ;;do not re-scan data.
+                              :force-datatype? true
                               :data
                               (cond
                                 (dtype/numeric-type? dtype)
@@ -683,24 +685,38 @@ user> (ds/missing (*1 :c))
                                 (= :string dtype)
                                 (str-data->coldata data)
                                 :else
-                                (if (instance? js/Array data)
+                                (if (and (dtype/counted? data)
+                                         (dtype/indexed? data))
+                                  ;;access data in place
                                   (arrays/make-typed-buffer data dtype)
-                                  (dtype/as-agetable (dtype/make-container dtype data))))
+                                  (dtype/make-container dtype data)))
                               :name (:name metadata)})))
        (ds-impl/new-dataset (:metadata ds-data))))
 
-(def writer* (delay (t/writer :json)))
-(def reader* (delay (t/reader :json)))
+
+(defn transit-write-handler-map
+  []
+  {ds-impl/Dataset (t/write-handler (constantly "tech.v3.dataset") dataset->data)})
 
 
-(defn dataset->json
-  [ds]
-  (.write @writer* (dataset->data ds)))
+(defn dataset->transit-str
+  "Using default json transit format, convert a dataset into a string."
+  [ds & [format handlers]]
+  (let [writer (t/writer (or format :json)
+                         {:handlers (merge (transit-write-handler-map) handlers)})]
+    (.write writer ds)))
 
 
-(defn json->dataset
-  [json-data]
-  (data->dataset (.read @reader* json-data)))
+(defn transit-read-handler-map
+  []
+  {"tech.v3.dataset" data->dataset})
+
+
+(defn transit-str->dataset
+  [json-data & [format handlers]]
+  (let [reader (t/reader (or format :json)
+                         {:handlers (merge (transit-read-handler-map) handlers)})]
+    (.read reader json-data)))
 
 
 (comment

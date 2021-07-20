@@ -1,14 +1,15 @@
 (ns tech.v3.datatype.base
-  (:require [tech.v3.datatype.protocols :as dtype-proto])
+  (:require [tech.v3.datatype.protocols :as dtype-proto]
+            [goog.object :as gobject])
   (:refer-clojure :exclude [clone counted? indexed?]))
 
 
 (defn ecount
   [item]
-  (if item
+  (if (nil? item)
+    0
     ;;As count is a protocol in js, we have no reason to define our own
-    (count item)
-    0))
+    (count item)))
 
 
 (defn clone
@@ -153,9 +154,17 @@
     consume-fn))
 
 
-(defn as-iterable
+(defn as-js-iterator
   [data]
-  (when (aget data "values") data))
+  (when data
+    (when-let [iter-fn (gobject/get data ITER_SYMBOL)]
+      (.call iter-fn data))))
+
+
+(defn as-iterator
+  [data]
+  (when (and data (satisfies? IIterable data))
+    (-iterator data)))
 
 
 (defn indexed-iterate!
@@ -167,17 +176,24 @@
     (cond
       (integer-range? item)
       (indexed-iterate-range! consume-fn item)
-      (indexed? item)
-      (let [n-elems (count item)]
-        (dotimes [idx n-elems]
-          (consume-fn idx (nth item idx))))
-      (as-iterable item)
-      (let [vals (.values item)]
+      (as-iterator item)
+      (let [iter (as-iterator item)]
+        (loop [continue? (.hasNext iter)
+               idx 0]
+          (when continue?
+            (consume-fn idx (.next iter))
+            (recur (.hasNext iter) (unchecked-inc idx)))))
+      (as-js-iterator item)
+      (let [vals (as-js-iterator item)]
         (loop [data (.next vals)
                idx 0]
           (when-not (.-done data)
             (consume-fn idx (.-value data))
             (recur (.next vals) (unchecked-inc idx)))))
+      (indexed? item)
+      (let [n-elems (count item)]
+        (dotimes [idx n-elems]
+          (consume-fn idx (nth item idx))))
       :else
       (if-let [item (seq item)]
         (loop [val (first item)
@@ -198,8 +214,14 @@
     (cond
       (integer-range? item)
       (iterate-range! consume-fn item)
-      (as-iterable item)
-      (let [vals (.values item)]
+      (as-iterator item)
+      (let [iter (as-iterator item)]
+        (loop [continue? (.hasNext iter)]
+          (when continue?
+            (consume-fn (.next iter))
+            (recur (.hasNext iter)))))
+      (as-js-iterator item)
+      (let [vals (as-js-iterator item)]
         (loop [data (.next vals)]
           (when-not (.-done data)
             (consume-fn (.-value data))

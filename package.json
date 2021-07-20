@@ -1,7 +1,9 @@
 {
     "dependencies": {
-        "ws": "^7.5.3",
-        "base64-js": "^1.5.0"
+        "@cljs-oss/module-deps": "^1.1.1",
+        "@js-joda/core": "^1.12.0",
+        "base64-js": "^1.5.0",
+        "ws": "^7.5.3"
     },
     "devDependencies": {
         "source-map-support": "^0.5.19"
