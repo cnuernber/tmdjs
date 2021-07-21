@@ -9,7 +9,6 @@
             [tech.v3.dataset.protocols :as ds-proto]
             [tech.v3.dataset.format-sequence :as fmt]
             [tech.v3.dataset.columnwise-map :as cmap]
-            [tech.v3.dataset.columnwise-vec :as cvec]
             [clojure.string :as str]))
 
 

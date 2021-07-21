@@ -87,3 +87,17 @@
         ds (ds/concat ds ds)]
     (is (= [20 2 20 20 20 6 20 20 2 20 20 20 6 20]
            ((ds/replace-missing ds :all [:value 20]) :a)))))
+
+
+(deftest row-hash-equiv
+  (let [ds (ds/->dataset {:a (range 100)
+                          :b (range 100)
+                          :c (repeat 100 :b)})]
+    (is (= {:a 0 :b 0 :c :b}
+           (ds/row-at ds 0)))
+    (is (= (hash {:a 0 :b 0 :c :b})
+           (hash (ds/row-at ds 0))))
+    (is (= [0 0 :b]
+           (ds/rowvec-at ds 0)))
+    (is (= (hash [0 0 :b])
+           (hash (ds/rowvec-at ds 0))))))
