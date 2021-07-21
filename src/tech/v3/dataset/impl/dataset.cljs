@@ -8,6 +8,8 @@
             [tech.v3.dataset.io.column-parsers :as col-parsers]
             [tech.v3.dataset.protocols :as ds-proto]
             [tech.v3.dataset.format-sequence :as fmt]
+            [tech.v3.dataset.columnwise-map :as cmap]
+            [tech.v3.dataset.columnwise-vec :as cvec]
             [clojure.string :as str]))
 
 
@@ -248,6 +250,33 @@
     (if-let [col-idx (colname->col colname)]
       (col-ary col-idx)
       (throw (js/Error. (str "No column named \"" colname "\"")))))
+  (-rows [ds]
+    (dtype/reify-reader (ds-proto/-row-count ds)
+                        :persistent-map
+                        #(cmap/columnwise-map col-ary colname->col %)))
+  (-rowvecs [ds]
+    (dtype/reify-reader (ds-proto/-row-count ds)
+                        :persistent-vector
+                        (fn [row-idx ]
+                          (dtype/reify-reader (count col-ary) :object
+                                              (fn [col-idx]
+                                                ((col-ary col-idx) row-idx))))))
+  (-row-at [ds idx]
+    (let [rc (ds-proto/-row-count ds)
+          idx (if (< idx 0)
+                (+ rc idx)
+                idx)]
+      (when-not (< idx rc)
+        (throw (js/Error. (str "row-at index out of range: " idx " >= " rc))))
+      (cmap/columnwise-map col-ary colname->col idx)))
+  (-rowvec-at [ds idx]
+    (let [rc (ds-proto/-row-count ds)
+          idx (if (< idx 0)
+                (+ rc idx)
+                idx)]
+      (when-not (< idx rc)
+        (throw (js/Error. (str "row-at index out of range: " idx " >= " rc))))
+      (dtype/reify-reader (count col-ary) :object #((col-ary %) idx))))
 
   ds-proto/PMissing
   (-missing [this]

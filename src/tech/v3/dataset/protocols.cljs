@@ -22,7 +22,13 @@
 (defprotocol PDataset
   (-is-dataset? [item])
   ;;error on failure
-  (-column [ds colname]))
+  (-column [ds colname])
+  ;;indexable object.
+  (-rows [ds])
+  (-rowvecs [ds])
+  (-row-at [ds idx])
+  (-rowvec-at [ds idx]))
+
 
 (extend-type object
   PMissing

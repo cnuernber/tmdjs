@@ -8,7 +8,7 @@
             [tech.v3.datatype.arrays :as dt-arrays]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.bitmap :as bitmap]
-            [tech.v3.dataset.format-sequence :as fmt]
+            [tech.v3.datatype.reader-vec :as rvec]
             [clojure.string :as s])
   (:refer-clojure :exclude [clone counted? indexed?]))
 
@@ -264,62 +264,7 @@
 
 (defn reify-reader
   [n-elems dtype idx->val-fn]
-  (let [hashcode* (atom nil)]
-    (reify
-      ICounted
-      (-count [rdr] n-elems)
-      ICloneable
-      (-clone [rdr] (make-container dtype rdr))
-      ISeqable
-      (-seq [rdr] (map #(nth rdr %) (range n-elems)))
-      IFn
-      (-invoke [rdr idx] (nth rdr idx))
-      IIndexed
-      (-nth [rdr n]
-        (let [n (if (< n 0) (+ n-elems n) n)]
-          (when (or (< n 0) (>= n n-elems))
-            (throw (js/Error. (str "Access out of range: " n " >= " n-elems))))
-          (idx->val-fn n)))
-      (-nth [rdr n not-found]
-        (let [n (if (< n 0) (+ n-elems n) n)]
-          (if (< n n-elems)
-            (idx->val-fn n)
-            not-found)))
-      IPrintWithWriter
-      (-pr-writer [array writer opts]
-        (let [print-n (min n-elems 20)
-              str-data (if (casting/numeric-type? dtype)
-                         (fmt/format-sequence (take print-n (seq array)))
-                         (map str (take print-n (seq array))))
-              str-data (if (> n-elems 20)
-                         (concat str-data ["..."])
-                         str-data)]
-          (if-not (:simple-print? (meta array))
-            (-write writer (str "#reader[" dtype " " n-elems "]["
-                                (s/join " " str-data)"]"))
-            (-write writer (str "[" (s/join " " str-data)"]")))))
-      ISequential
-      IHash
-      (-hash [o]
-        (swap! hashcode* (fn [existing]
-                           (if existing
-                             existing
-                             (dt-arrays/hash-nthable o)))))
-      IEquiv
-      (-equiv [this other]
-        (dt-arrays/equiv-nthable this other))
-      IIterable
-      (-iterator [this] (dt-arrays/nth-iter this))
-      dt-proto/PElemwiseDatatype
-      (-elemwise-datatype [rdr] dtype)
-      dt-proto/PDatatype
-      (-datatype [rdr] :reader)
-      dt-proto/PSubBufferCopy
-      (-sub-buffer-copy [rdr off len]
-        (dt-base/sub-buffer rdr off len))
-      dt-proto/PSubBuffer
-      (-sub-buffer [rdr off len]
-        (reify-reader len dtype #(idx->val-fn (+ % off)))))))
+  (rvec/reader-vec n-elems dtype idx->val-fn))
 
 
 (defn emap

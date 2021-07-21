@@ -140,21 +140,24 @@
 (defn rows
   "Get a sequence of maps from a dataset"
   [ds]
-  (let [cols (vals ds)
-        n-rows (row-count ds)]
-    (vary-meta
-     (dtype/reify-reader
-      n-rows
-      :object
-      (fn [idx]
-        (->> (map #(vector (name %) (% idx)) cols)
-             (into {}))))
-     assoc :simple-print? true)))
+  (ds-proto/-rows ds))
+
+(defn rowvecs
+  "Get a sequence of persistent vectors from a dataset"
+  [ds]
+  (ds-proto/-rowvecs ds))
 
 
 (defn row-at
+  "Get row as a map at index idx.  Negative indexes index from the end."
   [ds idx]
-  (nth (rows ds) idx))
+  (ds-proto/-row-at ds idx))
+
+
+(defn rowvec-at
+  "Get row as a vec of values at index idx.  Negative indexes index from the end."
+  [ds idx]
+  (ds-proto/-rowvec-at ds idx))
 
 
 (defn select-rows
