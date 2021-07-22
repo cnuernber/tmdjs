@@ -7,7 +7,7 @@
             [tech.v3.dataset.impl.column :as col-impl]
             [tech.v3.dataset.io.column-parsers :as col-parsers]
             [tech.v3.dataset.protocols :as ds-proto]
-            [tech.v3.dataset.format-sequence :as fmt]
+            [tech.v3.datatype.format-sequence :as fmt]
             [tech.v3.dataset.columnwise-map :as cmap]
             [clojure.string :as str]))
 

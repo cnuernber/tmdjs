@@ -1,6 +1,5 @@
 (ns tech.v3.datatype.arrays
-  (:require [accent.arrays :as accent-arrays]
-            [tech.v3.datatype.protocols :as dtype-proto]
+  (:require [tech.v3.datatype.protocols :as dt-proto]
             [tech.v3.datatype.base :as dt-base]
             [tech.v3.datatype.argtypes :as argtypes])
   (:refer-clojure :exclude [make-array]))
@@ -135,17 +134,17 @@
 
 (doseq [ary-type (map first ary-types)]
   (extend-type ary-type
-    dtype-proto/PElemwiseDatatype
+    dt-proto/PElemwiseDatatype
     (-elemwise-datatype [item] (ary-types ary-type))
-    dtype-proto/PDatatype
+    dt-proto/PDatatype
     (-datatype [item] :typed-array)
-    dtype-proto/PToTypedArray
+    dt-proto/PToTypedArray
     (-convertible-to-typed-array? [item] true)
     (->typed-array [item] item)
-    dtype-proto/PSubBufferCopy
+    dt-proto/PSubBufferCopy
     (-sub-buffer-copy [item off len]
       (.slice item off (+ off len)))
-    dtype-proto/PSubBuffer
+    dt-proto/PSubBuffer
     (-sub-buffer [item off len]
       (.subarray item off (+ off len)))
     IHash
@@ -159,16 +158,40 @@
             retval (js* "new item.constructor(len)")]
         (.set retval item)
         retval))
-    dtype-proto/PSetValue
+    ISequential
+    ISeqable
+    (-seq [array] (array-seq array))
+    ISeq
+    (-first [array] (aget array 0))
+    (-rest  [array] (.subarray array 1))
+    IIndexed
+    (-nth
+      ([array n]
+       (aget array n))
+      ([array n not-found]
+       (if (< n (count array))
+         (aget array n)
+         not-found)))
+    ICounted
+    (-count [array] (.-length array))
+    IReduce
+    (-reduce
+      ([array f] (array-reduce array f))
+      ([array f start] (array-reduce array f start)))
+    IPrintWithWriter
+    (-pr-writer [rdr writer opts]
+      (-write writer (dt-base/reader->str rdr "typed-array")))
+    dt-proto/PSetValue
     (-set-value! [item idx data]
       (cond
         (number? data)
         (aset item idx data)
-        (accent-arrays/typed-array? data)
-        (.set item data idx)
-        (dtype-proto/-convertible-to-js-array? data)
-        (dotimes [didx (count data)]
-          (aset item (+ idx didx) (aget data didx)))
+        (dt-proto/-convertible-to-typed-array? data)
+        (.set item (dt-proto/->typed-array data) idx)
+        (dt-proto/-convertible-to-js-array? data)
+        (let [data (dt-proto/->js-array data)]
+          (dotimes [didx (count data)]
+            (aset item (+ idx didx) (aget data didx))))
         ;;common case for integer ranges
         (dt-base/integer-range? data)
         (if (and (= 1 (aget data "step"))
@@ -180,22 +203,22 @@
         (dotimes [didx (count data)]
           (aset item (+ idx didx) (nth data didx))))
       item)
-    dtype-proto/PSetConstant
+    dt-proto/PSetConstant
     (-set-constant! [item offset elem-count data]
       (.fill item data offset (+ offset elem-count)))))
 
 
 
 (extend-type array
-  dtype-proto/PDatatype
+  dt-proto/PDatatype
   (-datatype [item] :js-array)
-  dtype-proto/PToJSArray
+  dt-proto/PToJSArray
   (-convertible-to-js-array? [buf] true)
   (->js-array [buf] buf)
-  dtype-proto/PSubBufferCopy
+  dt-proto/PSubBufferCopy
   (-sub-buffer-copy [item off len]
     (.slice item off (+ off len)))
-  dtype-proto/PSubBuffer
+  dt-proto/PSubBuffer
   (-sub-buffer [item off len]
     ;;js arrays, like jvm arrays, have no sub-array functionality
     (.slice item off (+ off len)))
@@ -206,7 +229,7 @@
   IEquiv
   (-equiv [this other]
     (equiv-agetable this other))
-  dtype-proto/PSetValue
+  dt-proto/PSetValue
   (-set-value! [item idx data]
     (cond
       (number? data)
@@ -230,7 +253,7 @@
       (dotimes [didx (count data)]
         (aset item (+ idx didx) (nth data didx))))
     item)
-  dtype-proto/PSetConstant
+  dt-proto/PSetConstant
   (-set-constant! [item offset elem-count data]
     (.fill item data offset (+ offset elem-count))))
 
@@ -246,10 +269,10 @@
   [data]
   (cond
     (argtypes/scalar? data) (bool-val->byte data)
-    (dtype-proto/-convertible-to-typed-array? data)
-    (.map (dtype-proto/->typed-array data) bool-val->byte)
-    (dtype-proto/-convertible-to-js-array? data)
-    (.map (dtype-proto/->js-array data) bool-val->byte)
+    (dt-proto/-convertible-to-typed-array? data)
+    (.map (dt-proto/->typed-array data) bool-val->byte)
+    (dt-proto/-convertible-to-js-array? data)
+    (.map (dt-proto/->js-array data) bool-val->byte)
     (sequential? data)
     (mapv bool-val->byte data)
     ;;scalars should fall through here.
@@ -270,21 +293,21 @@
   (-count [item] (count buf))
   ICloneable
   (-clone [item] (make-boolean-array (clone buf) metadata))
-  dtype-proto/PElemwiseDatatype
+  dt-proto/PElemwiseDatatype
   (-elemwise-datatype [item] :boolean)
-  dtype-proto/PSubBufferCopy
+  dt-proto/PSubBufferCopy
   (-sub-buffer-copy [item off len]
-    (make-boolean-array (dtype-proto/-sub-buffer-copy buf off len) metadata))
-  dtype-proto/PSubBuffer
+    (make-boolean-array (dt-proto/-sub-buffer-copy buf off len) metadata))
+  dt-proto/PSubBuffer
   (-sub-buffer [item off len]
-    (make-boolean-array (dtype-proto/-sub-buffer buf off len) metadata))
-  dtype-proto/PSetValue
+    (make-boolean-array (dt-proto/-sub-buffer buf off len) metadata))
+  dt-proto/PSetValue
   (-set-value! [item idx data]
-    (dtype-proto/-set-value! buf idx (booleans->bytes data))
+    (dt-proto/-set-value! buf idx (booleans->bytes data))
     item)
-  dtype-proto/PSetConstant
+  dt-proto/PSetConstant
   (-set-constant! [item offset elem-count data]
-    (dtype-proto/-set-constant! buf offset elem-count
+    (dt-proto/-set-constant! buf offset elem-count
                                 (booleans->bytes data))
     item)
   IHash
@@ -297,12 +320,12 @@
     (equiv-nthable this other))
   IIterable
   (-iterator [this] (nth-iter this))
-  dtype-proto/PToTypedArray
+  dt-proto/PToTypedArray
   (-convertible-to-typed-array? [this] true)
   (->typed-array [this] buf)
   ;;Disable aget for this buffer.  This is because it will result in algorithms
   ;;getting the base buffer which will mean they get 1,0 instead of true,false.
-  dtype-proto/PAgetable
+  dt-proto/PAgetable
   (-convertible-to-agetable? [this] false)
   IWithMeta
   (-with-meta [coll new-meta]
@@ -313,8 +336,7 @@
   (-meta [coll] metadata)
   IPrintWithWriter
   (-pr-writer [array writer opts]
-    (-write writer (str "#boolean-array"
-                        (take 20 (map byte->boolean (array-seq buf))))))
+    (-write writer (dt-base/reader->str rdr "typed-array")))
   ISequential
   ISeqable
   (-seq [array] (map byte->boolean buf))
@@ -350,27 +372,27 @@
   (-count [item] (count buf))
   ICloneable
   (-clone [item] (make-typed-buffer (clone buf) elem-dtype metadata))
-  dtype-proto/PElemwiseDatatype
+  dt-proto/PElemwiseDatatype
   (-elemwise-datatype [item] elem-dtype)
-  dtype-proto/PToJSArray
-  (-convertible-to-js-array? [item] (dtype-proto/-convertible-to-js-array? buf))
-  (->js-array [item] (dtype-proto/->js-array buf))
-  dtype-proto/PToTypedArray
-  (-convertible-to-typed-array? [item] (dtype-proto/-convertible-to-typed-array? buf))
-  (->typed-array [item] (dtype-proto/->typed-array buf))
-  dtype-proto/PSubBufferCopy
+  dt-proto/PToJSArray
+  (-convertible-to-js-array? [item] (dt-proto/-convertible-to-js-array? buf))
+  (->js-array [item] (dt-proto/->js-array buf))
+  dt-proto/PToTypedArray
+  (-convertible-to-typed-array? [item] (dt-proto/-convertible-to-typed-array? buf))
+  (->typed-array [item] (dt-proto/->typed-array buf))
+  dt-proto/PSubBufferCopy
   (-sub-buffer-copy [item off len]
     (make-typed-buffer (dt-base/sub-buffer-copy buf off len) elem-dtype metadata))
-  dtype-proto/PSubBuffer
+  dt-proto/PSubBuffer
   (-sub-buffer [item off len]
     (make-typed-buffer (dt-base/sub-buffer buf off len) elem-dtype metadata))
-  dtype-proto/PSetValue
+  dt-proto/PSetValue
   (-set-value! [item idx data]
-    (dtype-proto/-set-value! buf idx data)
+    (dt-proto/-set-value! buf idx data)
     item)
-  dtype-proto/PSetConstant
+  dt-proto/PSetConstant
   (-set-constant! [item offset elem-count data]
-    (dtype-proto/-set-constant! buf offset elem-count data)
+    (dt-proto/-set-constant! buf offset elem-count data)
     item)
   IWithMeta
   (-with-meta [coll new-meta]
@@ -381,13 +403,12 @@
   (-meta [coll] metadata)
   IPrintWithWriter
   (-pr-writer [array writer opts]
-    (-write writer (str "#typed-buffer[" elem-dtype "]"
-                        (take 20 (array-seq buf)))))
+    (-write writer (dt-base/reader->str rdr "typed-buffer")))
   ISeqable
   (-seq [array] (array-seq buf))
   ISeq
   (-first [array] (nth buf 0))
-  (-rest  [array] (dtype-proto/-sub-buffer buf 1 (dec (count buf))))
+  (-rest  [array] (dt-proto/-sub-buffer buf 1 (dec (count buf))))
   IFn
   (-invoke [array n]
     (let [n (if (< n 0) (+ (count array) n) n)]
@@ -446,16 +467,16 @@
 
 
 (extend-type IntegerRange
-  dtype-proto/PElemwiseDatatype
+  dt-proto/PElemwiseDatatype
   (-elemwise-datatype [r] :int64)
-  dtype-proto/PSubBuffer
+  dt-proto/PSubBuffer
   (-sub-buffer [r off len]
     (let [n-start (nth r off)
           n-end (nth r (+ off len))]
       (range n-start n-end (aget r "step"))))
-  dtype-proto/PSubBufferCopy
+  dt-proto/PSubBufferCopy
   (-sub-buffer-copy [r off len]
-    (dtype-proto/-sub-buffer r off len)))
+    (dt-proto/-sub-buffer r off len)))
 
 
 (defn indexed-buffer
@@ -473,7 +494,7 @@
                             (aget indexes "start")
                             (- (aget indexes "end") (aget indexes "start")))))
     (let [buf (dt-base/ensure-indexable buf)
-          dtype (dtype-proto/-elemwise-datatype buf)
+          dtype (dt-proto/-elemwise-datatype buf)
           indexes (dt-base/ensure-indexable indexes)
           n-indexes (count indexes)
           retval (make-array dtype n-indexes)

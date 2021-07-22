@@ -10,7 +10,7 @@
             [base64-js :as b64]
             [cognitect.transit :as t]
             [clojure.set :as set])
-  (:refer-clojure :exclude [concat update]))
+  (:refer-clojure :exclude [concat update filter sort-by group-by]))
 
 
 (defn options->parser-fn
@@ -190,7 +190,7 @@
   (let [colnames (set colnames)
         ds-colnames (set (column-names ds))
         keep-cols (set/difference ds-colnames colnames)]
-    (select-columns ds (filter keep-cols (column-names ds)))))
+    (select-columns ds (cljs.core/filter keep-cols (column-names ds)))))
 
 
 (defn rename-columns
@@ -208,10 +208,32 @@
       (select-rows rows)))
 
 
+(defn head
+  ([ds n]
+   (let [n (min n (row-count ds))]
+     (-> (select-rows ds (range n))
+         (vary-meta assoc :print-index-range (range n)))))
+  ([ds] (head ds 5)))
+
+
+(defn tail
+  ([ds n]
+   (let [n (min n (row-count ds))]
+     (-> (select-rows ds (range (- (row-count ds) n) (row-count ds)))
+         (vary-meta assoc :print-index-range (range n)))))
+  ([ds] (tail ds 5)))
+
+
 (defn filter-column
   [ds colname pred]
   (let [coldata (column ds colname)]
     (select-rows ds (argops/argfilter pred coldata))))
+
+
+(defn filter
+  "Filter the dataset.  Pred gets passed each row as a map."
+  [ds pred]
+  (select-rows ds (argops/argfilter pred (rows ds))))
 
 
 (defn sort-by-column
@@ -220,10 +242,29 @@
     (select-rows ds (argops/argsort sort-op coldata))))
 
 
+(defn sort-by
+  "Sort dataset by "
+  [ds keyfn & [comp]]
+  (let [ds-rows (rows ds)]
+    (select-rows ds (argops/argsort comp (dtype/reify-reader
+                                          (row-count ds)
+                                          #(keyfn (ds-rows %)))))))
+
+
 (defn group-by-column
   [ds colname]
   (let [coldata (column ds colname)
         group-map (argops/arggroup coldata)]
+    (->> group-map
+         (map (fn [[k v]]
+                [k (select-rows ds v)]))
+         (into {}))))
+
+
+(defn group-by
+  [ds f]
+  (let [ds-rows (rows ds)
+        group-map (argops/arggroup (dtype/reify-reader (row-count ds) #(f (ds-rows %))))]
     (->> group-map
          (map (fn [[k v]]
                 [k (select-rows ds v)]))
@@ -244,12 +285,12 @@
          coldata))
       (let [n-elems (count coldata)]
         (loop [idx 0
-               seen #{}]
+               seen (transient #{})]
           (when (< idx n-elems)
             (let [val (coldata idx)]
               (when-not (seen val)
                 (dtype/add! passidx idx))
-              (recur (unchecked-inc idx) (conj seen val)))))))
+              (recur (unchecked-inc idx) (conj! seen val)))))))
     (select-rows ds passidx)))
 
 

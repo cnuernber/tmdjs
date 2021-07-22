@@ -263,8 +263,10 @@
 
 
 (defn reify-reader
-  [n-elems dtype idx->val-fn]
-  (rvec/reader-vec n-elems dtype idx->val-fn))
+  ([n-elems dtype idx->val-fn]
+   (rvec/reader-vec n-elems dtype idx->val-fn))
+  ([n-elems idx->val-fn]
+   (reify-reader n-elems :object idx->val-fn)))
 
 
 (defn emap

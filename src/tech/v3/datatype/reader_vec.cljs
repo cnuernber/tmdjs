@@ -3,7 +3,6 @@
             [tech.v3.datatype.arrays :as dt-arrays]
             [tech.v3.datatype.base :as dt-base]
             [tech.v3.datatype.protocols :as dt-proto]
-            [tech.v3.dataset.format-sequence :as fmt]
             [tech.v3.datatype.casting :as casting]
             [clojure.string :as s]))
 
@@ -179,24 +178,8 @@
     (dt-arrays/nth-iter this))
 
   IPrintWithWriter
-  (-pr-writer [rdr-data writer opts]
-    ;;numpy-style  first/last print of longer sequences
-    (-write writer
-            (let [begin (str "#reader[[" dtype " " cnt "][")]
-              (if (> cnt 25)
-                (let [begin-data (dt-base/sub-buffer rdr-data 0 10)
-                      end-data (dt-base/sub-buffer rdr-data (- cnt 10) 10)
-                      formatted (if (casting/numeric-type? dtype)
-                                  (fmt/format-sequence (concat begin-data end-data))
-                                  (concat begin-data end-data))]
-                  (str begin (s/join " " (concat (take 10 formatted)
-                                                 ["..."]
-                                                 (drop 10 formatted)))
-                       "]"))
-                (let [formatted (if (casting/numeric-type? dtype)
-                                  (fmt/format-sequence rdr-data)
-                                  rdr-data)]
-                  (str begin (s/join " " formatted) "]"))))))
+  (-pr-writer [rdr writer opts]
+    (-write writer (dt-base/reader->str rdr "reader")))
 
   dt-proto/PDatatype
   (-datatype [this] :reader)

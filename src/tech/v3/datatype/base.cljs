@@ -1,6 +1,9 @@
 (ns tech.v3.datatype.base
   (:require [tech.v3.datatype.protocols :as dtype-proto]
-            [goog.object :as gobject])
+            [tech.v3.datatype.casting :as casting]
+            [tech.v3.datatype.format-sequence :as fmt]
+            [goog.object :as gobject]
+            [clojure.string :as s])
   (:refer-clojure :exclude [clone counted? indexed?]))
 
 
@@ -234,3 +237,37 @@
       (doseq [val item]
         (consume-fn val))))
   consume-fn)
+
+
+(defn reader-data->str
+  ([rdr dtype]
+   ;;numpy-style  first/last print of longer sequences
+   (let [n-elems (count rdr)
+         ellipses? (> n-elems 25)
+         n-shortened 10
+         rdr-data (if ellipses?
+                    (concat (sub-buffer rdr 0 n-shortened)
+                            (sub-buffer rdr (- n-elems n-shortened) n-shortened))
+                    rdr)
+         formatted (if (casting/numeric-type? dtype)
+                     (fmt/format-sequence rdr-data)
+                     rdr-data)]
+
+     (if ellipses?
+       (s/join " " (concat (take n-shortened formatted)
+                           ["..."]
+                           (drop n-shortened formatted)))
+       (s/join " " formatted))))
+  ([rdr]
+   (reader-data->str rdr (elemwise-datatype rdr))))
+
+
+(defn reader->str
+  [rdr typename]
+  (let [simple-print? (get (meta rdr) :simple-print?)
+        cnt (count rdr)
+        dtype (elemwise-datatype rdr)
+        rdr-str (reader-data->str rdr dtype)]
+    (if simple-print?
+      (str "[" rdr-str "]")
+      (str "#" typename "[[" dtype " " cnt "][" rdr-str "]"))))

@@ -28,9 +28,8 @@
   (-with-meta [this new-meta]
     (make-primitive-list buf dtype ptr new-meta))
   IPrintWithWriter
-  (-pr-writer [array writer opts]
-    (-write writer (str "#list[" dtype "]"
-                        (take 20 (seq (dt-proto/-sub-buffer buf 0 ptr))))))
+  (-pr-writer [rdr writer opts]
+    (-write writer (dt-base/reader->str rdr "list")))
   ISequential
   ISeqable
   (-seq [array] (array-seq (dt-proto/-sub-buffer buf 0 ptr)))

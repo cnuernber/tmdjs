@@ -2,10 +2,10 @@
   "Column implementation and defaults"
   (:require [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype :as dtype]
+            [tech.v3.datatype.base :as dt-base]
             [tech.v3.datatype.argtypes :as argtypes]
             [tech.v3.datatype.arrays :as dt-arrays]
             [tech.v3.datatype.protocols :as dt-proto]
-            [tech.v3.dataset.format-sequence :as fmt]
             [tech.v3.dataset.string-table :as strt]
             [tech.v3.dataset.protocols :as ds-proto]))
 
@@ -91,18 +91,7 @@
            :datatype (dtype/elemwise-datatype buf)))
   IPrintWithWriter
   (-pr-writer [array writer opts]
-    (let [dbuf (take 20 (seq array))
-          dbuf (if numeric?
-                 (fmt/format-sequence dbuf)
-                 dbuf)
-          dbuf (if (> (count array) 20)
-                 (concat dbuf ["..."])
-                 dbuf)
-          dstr (.join (clj->js dbuf) " ")]
-      (-write writer (str "#column[["
-                          (name (dt-proto/-elemwise-datatype array))
-                          ":" (count array)"]"
-                          "[" dstr "]]"))))
+    (-write writer (dt-base/reader->str array "column")))
   INamed
   (-name [this] (:name metadata))
   ISequential
@@ -145,6 +134,14 @@
     (dotimes [elidx elem-count]
       (.remove missing (+ elidx idx)))
     (dt-proto/-set-constant! buf idx elem-count value))
+  dt-proto/PSubBuffer
+  (-sub-buffer [col off len]
+    (let [new-buf (dt-base/sub-buffer buf off len)
+          new-missing (js/Set.)]
+      (dotimes [idx len]
+        (if (.has missing (+ off idx))
+          (.add new-missing idx)))
+      (new-column new-buf new-missing (meta col) numeric?)))
   ds-proto/PColumn
   (-is-column? [this] true)
   ds-proto/PRowCount

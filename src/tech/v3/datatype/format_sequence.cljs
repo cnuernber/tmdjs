@@ -1,4 +1,4 @@
-(ns tech.v3.dataset.format-sequence
+(ns tech.v3.datatype.format-sequence
   "Format a sequence of numbers.  We do what we can here...")
 
 
@@ -19,8 +19,6 @@
           idx
           (recur (* n-pow 10.0)
                  (unchecked-inc idx)))))))
-
-(def int-min -2147483648)
 
 ;; public functions
 
