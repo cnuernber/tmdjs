@@ -335,7 +335,7 @@
   IMeta
   (-meta [coll] metadata)
   IPrintWithWriter
-  (-pr-writer [array writer opts]
+  (-pr-writer [rdr writer opts]
     (-write writer (dt-base/reader->str rdr "typed-array")))
   ISequential
   ISeqable
@@ -402,7 +402,7 @@
   IMeta
   (-meta [coll] metadata)
   IPrintWithWriter
-  (-pr-writer [array writer opts]
+  (-pr-writer [rdr writer opts]
     (-write writer (dt-base/reader->str rdr "typed-buffer")))
   ISeqable
   (-seq [array] (array-seq buf))
