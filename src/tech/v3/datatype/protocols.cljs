@@ -1,5 +1,4 @@
-(ns tech.v3.datatype.protocols
-  (:require [java.time :refer [LocalDate Instant]]))
+(ns tech.v3.datatype.protocols)
 
 
 (defprotocol PDatatype
@@ -25,10 +24,6 @@
   (-datatype [item] :persistent-vector)
   js/Date
   (-datatype [item] :js-date)
-  LocalDate
-  (-datatype [item] :local-date)
-  Instant
-  (-datatype [item] :instant)
   UUID
   (-datatype [item] :uuid))
 

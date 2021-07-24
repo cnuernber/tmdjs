@@ -2,7 +2,8 @@
   (:require [tech.v3.datatype.base :as dt-base]
             [tech.v3.datatype.copy-make-container :as dt-cmc]
             [tech.v3.datatype.protocols :as dt-proto]
-            [tech.v3.datatype.arrays :as dt-arrays]))
+            [tech.v3.datatype.arrays :as dt-arrays]
+            [tech.v3.datatype.casting :as casting]))
 
 
 (declare make-primitive-list)
@@ -11,6 +12,7 @@
 (deftype PrimitiveList [^:unsynchronized-mutable buf
                         ^:unsynchronized-mutable agetable?
                         dtype
+                        cast-fn
                         ^:unsynchronized-mutable ptr
                         ^:unsynchronized-mutable buflen
                         ^:unsynchronized-mutable hashcode
@@ -109,7 +111,7 @@
         (set! agetable? new-agetable?)
         (set! buflen (* 2 buflen))))
     (if agetable?
-      (aset buf ptr elem)
+      (aset buf ptr (cast-fn elem))
       (dt-proto/-set-value! buf ptr elem))
     (set! ptr (inc ptr))
     this)
@@ -127,9 +129,7 @@
             (set! buflen new-len)))
         (dt-base/set-value! buf ptr container)
         (set! ptr (+ ptr n-elems)))
-      ;;For sequences we just add the data directly
-      (doseq [data container]
-        (dt-proto/-add this data)))
+      (dt-base/iterate! #(dt-proto/-add this %) container))
     this)
   (-ensure-capacity [this capacity]
     (when (< buflen capacity)
@@ -151,7 +151,9 @@
         buflen (count buf)
         abuf (dt-base/as-agetable buf)
         agetable? (if abuf true false)]
-    (PrimitiveList. (or abuf buf) agetable? dtype ptr buflen metadata nil)))
+    (PrimitiveList. (or abuf buf) agetable? dtype
+                    (casting/cast-fn dtype)
+                    ptr buflen metadata nil)))
 
 
 (defn make-list

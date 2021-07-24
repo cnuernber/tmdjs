@@ -3,6 +3,8 @@
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.argops :as argops]
             [tech.v3.datatype.arrays :as arrays]
+            [tech.v3.datatype.datetime :as dtype-dt]
+            [java.time :refer [LocalDate Instant]]
             [tech.v3.dataset.impl.dataset :as ds-impl]
             [tech.v3.dataset.impl.column :as col-impl]
             [tech.v3.dataset.protocols :as ds-proto]
@@ -631,15 +633,25 @@ user> (ds/missing (*1 :c))
   (reduce dtype/set-and (map ds-proto/-missing col-seq)))
 
 
+(defn- numeric-data->b64
+  [data]
+  (-> (clone data)
+      (dtype/ensure-typed-array)
+      (aget "buffer")
+      (js/Uint8Array.)
+      (b64/fromByteArray)))
+
+
 (defn- string-col->data
   [col]
   ;;make a new string table.
   (let [strmap (js/Map.)
         strtable (js/Array.)
-        indexes (js/Array.)]
+        indexes (dtype/make-container :int32 (count col))
+        idx-aget (dtype/as-agetable indexes)]
     (dtype/indexed-iterate!
      (fn [idx strval]
-       (.push indexes
+       (aset idx-aget idx
               (when strval
                 (if-let [cur-idx (.get strmap strval)]
                   cur-idx
@@ -648,16 +660,14 @@ user> (ds/missing (*1 :c))
                     (.set strmap strval cur-idx)
                     cur-idx))))) col)
     {:strtable strtable
-     :indexes indexes}))
+     :indexes (numeric-data->b64 indexes)}))
 
 
-(defn- numeric-data->b64
-  [data]
-  (-> (clone data)
-      (dtype/ensure-typed-array)
-      (aget "buffer")
-      (js/Uint8Array.)
-      (b64/fromByteArray)))
+(defn- obj-col->numeric-b64
+  [col dtype convert-fn]
+  (-> (dtype/emap #(if % (convert-fn %) 0) dtype col)
+      (clone)
+      (numeric-data->b64)))
 
 
 (defn- col->data
@@ -674,6 +684,10 @@ user> (ds/missing (*1 :c))
        (numeric-data->b64 (dtype/make-container :uint8 (aget col "buf")))
        (= :string col-dt)
        (string-col->data col)
+       (= :local-date col-dt)
+       (obj-col->numeric-b64 col :int32 dtype-dt/local-date->epoch-days)
+       (= :instant col-dt)
+       (obj-col->numeric-b64 col :int64 dtype-dt/instant->epoch-milliseconds)
        :else
        (dtype/as-js-array (dtype/make-container :object (aget col "buf"))))}))
 
@@ -688,12 +702,30 @@ user> (ds/missing (*1 :c))
    :columns (mapv col->data (columns ds))})
 
 
+(defn- b64->numeric-data
+  [b64data dtype]
+  (let [bdata (-> (b64/toByteArray b64data)
+                  (aget "buffer"))]
+    (case dtype
+      :int8 (js/Int8Array. bdata)
+      :uint8 bdata
+      :int16 (js/Int16Array. bdata)
+      :uint16 (js/Uint16Array. bdata)
+      :int32 (js/Int32Array. bdata)
+      :uint32 (js/Uint32Array. bdata)
+      :int64 (js/BigInt64Array. bdata)
+      :uint64 (js/BigUint64Array. bdata)
+      :float32 (js/Float32Array. bdata)
+      :float64 (js/Float64Array. bdata))))
+
+
 (defn- str-data->coldata
   [{:keys [strtable indexes]}]
-  (let [coldata (dtype/make-container :string (count indexes))
+  (let [indexes (b64->numeric-data indexes :int32)
+        coldata (dtype/make-container :string (count indexes))
         agetable (dtype/as-agetable coldata)]
     (dotimes [idx (count indexes)]
-      (aset agetable idx (nth strtable (nth indexes idx))))
+      (aset agetable idx (nth strtable (aget indexes idx))))
     coldata))
 
 
@@ -713,21 +745,20 @@ user> (ds/missing (*1 :c))
                               :data
                               (cond
                                 (dtype/numeric-type? dtype)
-                                (let [bdata (-> (b64/toByteArray data)
-                                                (aget "buffer"))]
-                                  (case dtype
-                                    :int8 (js/Int8Array. bdata)
-                                    :uint8 bdata
-                                    :int16 (js/Int16Array. bdata)
-                                    :uint16 (js/Uint16Array. bdata)
-                                    :int32 (js/Int32Array. bdata)
-                                    :uint32 (js/Uint32Array. bdata)
-                                    :float32 (js/Float32Array. bdata)
-                                    :float64 (js/Float64Array. bdata)))
+                                (b64->numeric-data data dtype)
                                 (= :boolean dtype)
                                 (arrays/make-boolean-array (b64/toByteArray data))
                                 (= :string dtype)
                                 (str-data->coldata data)
+                                (= :local-date dtype)
+                                (->> (b64->numeric-data data :int32)
+                                     (dtype/emap dtype-dt/epoch-days->local-date :local-date))
+                                (= :instant dtype)
+                                (->> (b64->numeric-data data :int64)
+                                     ;;int64 data comes out as js/bigints
+                                     (dtype/emap #(-> (js/Number. %)
+                                                      (dtype-dt/epoch-milliseconds->instant))
+                                                 :instant))
                                 :else
                                 (if (and (dtype/counted? data)
                                          (dtype/indexed? data))
@@ -765,24 +796,30 @@ user> (ds/missing (*1 :c))
 
 (comment
   (do
-    (def test-data (repeatedly 5000 #(hash-map
-                                      :time (rand)
-                                      :temp (rand)
-                                      :valid? (if (> (rand) 0.5) true false))))
+    (def test-data (repeatedly 50000 #(hash-map
+                                       :time (rand)
+                                       :temp (int (* 255 (rand)))
+                                       :valid? (if (> (rand) 0.5) true false))))
 
 
-    (def test-ds (->dataset test-data))
+    (def test-ds (->dataset test-data {:parser-fn {:temp :uint8}}))
     (def min-ds (select-rows test-ds (range 20))))
 
 
   (def ignored (time (->> (cljs.core/concat test-data test-data)
-                          (sort-by :time)
+                          (cljs.core/sort-by :time)
                           (dedupe)
                           (count))))
+  ;;600ms
 
-  (def ignored (time (.write @writer* test-data)))
+  (def ignored (time (merge-by-column test-ds test-ds :time)))
+  ;;10-20ms
 
-  (def ignored (time (dataset->json test-ds)))
+  (def writer (t/writer :json))
+
+  (def ignored-raw (time (.write writer test-data)))
+
+  (def ignored-ds (time (dataset->transit-str test-ds)))
 
   (def ignored (let [data (.write @writer* test-data)]
                  (time (.read @reader* data))))

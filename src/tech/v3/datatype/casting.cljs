@@ -72,6 +72,30 @@
 
 (def numeric-types (disj (set (map first type-graph-data)) :boolean))
 
+
 (defn numeric-type?
   [dtype]
   (boolean (numeric-types dtype)))
+
+
+(defn ->bigint
+  [data]
+  (if (instance? js/BigInt data) data (js/BigInt data)))
+
+
+(defn ->number
+  [data]
+  (if (instance? js/Number data)
+    data
+    (js/Number data)))
+
+
+(defn cast-fn
+  [dtype]
+  (cond
+    (#{:int64 :uint64} dtype)
+    ->bigint
+    (numeric-type? dtype)
+    ->number
+    :else
+    identity))

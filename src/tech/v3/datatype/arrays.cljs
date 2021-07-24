@@ -1,7 +1,8 @@
 (ns tech.v3.datatype.arrays
   (:require [tech.v3.datatype.protocols :as dt-proto]
             [tech.v3.datatype.base :as dt-base]
-            [tech.v3.datatype.argtypes :as argtypes])
+            [tech.v3.datatype.argtypes :as argtypes]
+            [tech.v3.datatype.casting :as casting])
   (:refer-clojure :exclude [make-array]))
 
 (set! *unchecked-arrays* true)
@@ -14,8 +15,11 @@
    js/Uint16Array :uint16
    js/Int32Array :int32
    js/Uint32Array :uint32
+   js/BigInt64Array :int64
+   js/BigUint64Array :uint64
    js/Float32Array :float32
    js/Float64Array :float64})
+
 
 (def typed-array-types (set (map second ary-types)))
 
@@ -133,79 +137,79 @@
 
 
 (doseq [ary-type (map first ary-types)]
-  (extend-type ary-type
-    dt-proto/PElemwiseDatatype
-    (-elemwise-datatype [item] (ary-types ary-type))
-    dt-proto/PDatatype
-    (-datatype [item] :typed-array)
-    dt-proto/PToTypedArray
-    (-convertible-to-typed-array? [item] true)
-    (->typed-array [item] item)
-    dt-proto/PSubBufferCopy
-    (-sub-buffer-copy [item off len]
-      (.slice item off (+ off len)))
-    dt-proto/PSubBuffer
-    (-sub-buffer [item off len]
-      (.subarray item off (+ off len)))
-    IHash
-    (-hash [o] (hash-agetable o))
-    IEquiv
-    (-equiv [this other]
-      (equiv-agetable this other))
-    ICloneable
-    (-clone [item]
-      (let [len (aget item "length")
-            retval (js* "new item.constructor(len)")]
-        (.set retval item)
-        retval))
-    ISequential
-    ISeqable
-    (-seq [array] (array-seq array))
-    ISeq
-    (-first [array] (aget array 0))
-    (-rest  [array] (.subarray array 1))
-    IIndexed
-    (-nth
-      ([array n]
-       (aget array n))
-      ([array n not-found]
-       (if (< n (count array))
-         (aget array n)
-         not-found)))
-    ICounted
-    (-count [array] (.-length array))
-    IReduce
-    (-reduce
-      ([array f] (array-reduce array f))
-      ([array f start] (array-reduce array f start)))
-    IPrintWithWriter
-    (-pr-writer [rdr writer opts]
-      (-write writer (dt-base/reader->str rdr "typed-array")))
-    dt-proto/PSetValue
-    (-set-value! [item idx data]
-      (cond
-        (number? data)
-        (aset item idx data)
-        (dt-proto/-convertible-to-typed-array? data)
-        (.set item (dt-proto/->typed-array data) idx)
-        (dt-proto/-convertible-to-js-array? data)
-        (let [data (dt-proto/->js-array data)]
-          (dotimes [didx (count data)]
-            (aset item (+ idx didx) (aget data didx))))
-        ;;common case for integer ranges
-        (dt-base/integer-range? data)
-        (if (and (= 1 (aget data "step"))
-                 (= 0 (aget data "start")))
-          (dotimes [ridx (count data)]
-            (aset item (+ ridx idx) ridx))
-          (dt-base/indexed-iterate-range! #(aset item (+ idx %1) %2) data))
-        :else
-        (dotimes [didx (count data)]
-          (aset item (+ idx didx) (nth data didx))))
-      item)
-    dt-proto/PSetConstant
-    (-set-constant! [item offset elem-count data]
-      (.fill item data offset (+ offset elem-count)))))
+  (let [cast-fn (casting/cast-fn (ary-types ary-type))]
+    (extend-type ary-type
+      dt-proto/PElemwiseDatatype
+      (-elemwise-datatype [item] (ary-types ary-type))
+      dt-proto/PDatatype
+      (-datatype [item] :typed-array)
+      dt-proto/PToTypedArray
+      (-convertible-to-typed-array? [item] true)
+      (->typed-array [item] item)
+      dt-proto/PSubBufferCopy
+      (-sub-buffer-copy [item off len]
+        (.slice item off (+ off len)))
+      dt-proto/PSubBuffer
+      (-sub-buffer [item off len]
+        (.subarray item off (+ off len)))
+      IHash
+      (-hash [o] (hash-agetable o))
+      IEquiv
+      (-equiv [this other]
+        (equiv-agetable this other))
+      ICloneable
+      (-clone [item]
+        (let [len (aget item "length")
+              retval (js* "new item.constructor(len)")]
+          (.set retval item)
+          retval))
+      ISequential
+      ISeqable
+      (-seq [array] (array-seq array))
+      ISeq
+      (-first [array] (aget array 0))
+      (-rest  [array] (.subarray array 1))
+      IIndexed
+      (-nth
+        ([array n]
+         (aget array n))
+        ([array n not-found]
+         (if (< n (count array))
+           (aget array n)
+           not-found)))
+      ICounted
+      (-count [array] (.-length array))
+      IReduce
+      (-reduce
+        ([array f] (array-reduce array f))
+        ([array f start] (array-reduce array f start)))
+      IPrintWithWriter
+      (-pr-writer [rdr writer opts]
+        (-write writer (dt-base/reader->str rdr "typed-array")))
+      dt-proto/PSetValue
+      (-set-value! [item idx data]
+        (cond
+          (or (number? data) (instance? js/BigInt data))
+          (aset item idx (cast-fn data))
+          (dt-proto/-convertible-to-typed-array? data)
+          (.set item (dt-proto/->typed-array data) idx)
+          (dt-proto/-convertible-to-js-array? data)
+          (let [data (dt-proto/->js-array data)]
+            (dotimes [didx (count data)]
+              (aset item (+ idx didx) (cast-fn (aget data didx)))))
+          ;;common case for integer ranges
+          (dt-base/integer-range? data)
+          (if (and (= 1 (aget data "step"))
+                   (= 0 (aget data "start")))
+            (dotimes [ridx (count data)]
+              (aset item (+ ridx idx) (cast-fn ridx)))
+            (dt-base/indexed-iterate-range! #(aset item (+ idx %1) (cast-fn %2)) data))
+          :else
+          (dt-base/indexed-iterate! #(aset item (+ idx %1) (cast-fn %2)) data))
+        item)
+      dt-proto/PSetConstant
+      (-set-constant! [item offset elem-count data]
+        (.fill item (cast-fn data) offset (+ offset elem-count))))))
 
 
 
@@ -460,6 +464,8 @@
           :uint16 (js/Uint16Array. len)
           :int32 (js/Int32Array. len)
           :uint32 (js/Uint32Array. len)
+          :int64 (js/BigInt64Array. len)
+          :uint64 (js/BigUint64Array. len)
           :float32 (js/Float32Array. len)
           :float64 (js/Float64Array. len)
           (js/Array. len))

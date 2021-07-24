@@ -1,7 +1,8 @@
 (ns tech.v3.dataset-test
   (:require [cljs.test :refer [deftest is run-tests]]
             [tech.v3.dataset :as ds]
-            [tech.v3.datatype :as dtype]))
+            [tech.v3.datatype :as dtype]
+            [tech.v3.datatype.datetime :as dtype-dt]))
 
 
 (deftest base-mapseq-test
@@ -43,7 +44,9 @@
                  :b (repeat 5 :a)
                  :c (repeat 5 "hey")
                  :d (repeat 5 {:a 1 :b 2})
-                 :e (repeat 4 [1 2 3])}))
+                 :e (repeat 4 [1 2 3])
+                 :f (repeat 5 (dtype-dt/local-date))
+                 :g (repeat 5 (dtype-dt/instant))}))
 
 
 (deftest serialize-test
@@ -57,11 +60,15 @@
            (mapv (comp :datatype meta) (vals nds))))))
 
 
+;;We have to remove the instants as they contain nanosecond data
+(defn master-ds-equiv [] (dissoc (master-ds) :g))
+
+
 (deftest hashcode-equiv
-  (is (= (master-ds) (master-ds)))
-  (is (not= (master-ds) (ds/rename-columns (master-ds) {:a :aa})))
-  (is (= (hash (master-ds)) (hash (master-ds))))
-  (is (not= (hash (master-ds)) (hash (ds/rename-columns (master-ds) {:a :aa})))))
+  (is (= (master-ds-equiv) (master-ds-equiv)))
+  (is (not= (master-ds-equiv) (ds/rename-columns (master-ds-equiv) {:a :aa})))
+  (is (= (hash (master-ds-equiv)) (hash (master-ds-equiv))))
+  (is (not= (hash (master-ds-equiv)) (hash (ds/rename-columns (master-ds-equiv) {:a :aa})))))
 
 
 (deftest replace-missing

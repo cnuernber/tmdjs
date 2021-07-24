@@ -4,6 +4,7 @@
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.arrays :as dt-arrays]
             [tech.v3.datatype.protocols :as dt-proto]
+            [tech.v3.datatype.datetime :as dtype-dt]
             [tech.v3.dataset.impl.column :as col-impl]
             [tech.v3.dataset.io.column-parsers :as col-parsers]
             [tech.v3.dataset.protocols :as ds-proto]
@@ -303,7 +304,7 @@
   ;;step 1 is to stringify the data
   (let [reader-data (if (casting/numeric-type? (dtype/elemwise-datatype reader-data))
                       (fmt/format-sequence reader-data)
-                      (map #(when (not (nil? %)) (pr-str %)) reader-data))]
+                      (map #(when (not (nil? %)) (.toString %)) reader-data))]
     ;;step 2 is to format the data respecting multiple line and max-width params.
     (->> reader-data
          (mapv (fn [strval]
