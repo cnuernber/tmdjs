@@ -697,7 +697,7 @@ user> (ds/missing (*1 :c))
   serialization.  Uses base64 encoding of numeric data."
   [ds]
   {:metadata (meta ds)
-   :flavor :cljs
+   :flavor :transit
    :version 1
    :columns (mapv col->data (columns ds))})
 

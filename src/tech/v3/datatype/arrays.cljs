@@ -135,6 +135,30 @@
     (aget-iter data)
     (nth-iter data)))
 
+(defn nth-reduce
+  ([buf f]
+   (let [cnt (count buf)]
+     (case cnt
+      0 (f)
+      1 (f (nth buf 0))
+      (loop [idx 1
+             init (f (nth buf 0))]
+        (if (and (< idx cnt) (not (reduced? init)))
+          (recur (inc idx) (f init (-nth buf idx)))
+          init)))))
+  ([buf f init]
+   (let [cnt (count buf)]
+     (if (reduced? init)
+       init
+       (case cnt
+         0 init
+         1 (f init (nth buf 0))
+         (loop [i 0
+                init init]
+           (if (and (< i cnt) (not (reduced? init)))
+             (recur (inc i) (f init (-nth buf i)))
+             init)))))))
+
 
 (doseq [ary-type (map first ary-types)]
   (let [cast-fn (casting/cast-fn (ary-types ary-type))]
@@ -398,6 +422,9 @@
   (-set-constant! [item offset elem-count data]
     (dt-proto/-set-constant! buf offset elem-count data)
     item)
+  IReduce
+  (-reduce [array f] (-reduce buf f))
+  (-reduce [array f start] (-reduce buf f start))
   IWithMeta
   (-with-meta [coll new-meta]
     (if (identical? new-meta metadata)

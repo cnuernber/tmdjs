@@ -105,6 +105,15 @@
     (dt-arrays/equiv-nthable this other))
   IIterable
   (-iterator [this] (dt-arrays/nth-iter this))
+  IReduce
+  (-reduce [this f]
+    (if (== 0 (count missing))
+      (-reduce buf f)
+      (dt-arrays/nth-reduce this f)))
+  (-reduce [this f start]
+    (if (== 0 (count missing))
+      (-reduce buf f start)
+      (dt-arrays/nth-reduce this f start)))
   dt-proto/PElemwiseDatatype
   (-elemwise-datatype [this] (dtype/elemwise-datatype buf))
   dt-proto/PDatatype
