@@ -2,6 +2,8 @@
   "Transit bindings for the jvm version of tech.v3.dataset."
   (:require [tech.v3.dataset :as ds]
             [tech.v3.dataset.impl.dataset :as ds-impl]
+            [tech.v3.dataset.io :as ds-io]
+            [tech.v3.io :as io]
             [tech.v3.datatype :as dtype]
             [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.casting :as casting]
@@ -218,6 +220,21 @@
   [in & [format handlers]]
   (let [reader (t/reader in (or format :json) {:handlers (merge read-handlers handlers)})]
     (t/read reader)))
+
+
+(defmethod ds-io/data->dataset :transit-json
+  [data options]
+  (with-open [in (io/input-stream data)]
+    (transit->dataset in (:transit-format options)
+                      (:transit-read-handlers options))))
+
+
+(defmethod ds-io/dataset->data! :transit-json
+  [ds output options]
+  (with-open [outs (io/output-stream! output)]
+    (dataset->transit ds outs
+                      (:transit-format options)
+                      (:transit-write-handlers options))))
 
 (comment
   (defn master-ds

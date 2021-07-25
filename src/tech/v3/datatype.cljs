@@ -184,17 +184,6 @@
               (rest arg-seq)))))
 
 
-(defn- emap-list
-  [map-fn ret-dtype args]
-  (let [retval (dt-list/make-primitive-list
-                (make-container ret-dtype
-                                (or (maybe-min-count args) 8))
-                ret-dtype 0)]
-    (doseq [item (apply map map-fn args)]
-      (dt-proto/-add retval item))
-    retval))
-
-
 (defn ->js-set
   "Create a javascript set.  These have superior performance when dealing with numeric
   data but they fail completely when dealing with clojure data such as persistent maps
