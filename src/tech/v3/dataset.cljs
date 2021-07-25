@@ -827,4 +827,38 @@ user> (ds/missing (*1 :c))
   (def ignored (let [data (dataset->json test-ds)]
                  (time (json->dataset data))))
 
+  (do
+
+    (def mapseq-data (atom nil))
+    (def ds-data (atom nil))
+
+    (def fs (js/require "fs"))
+
+
+    (.readFile fs "mapseq.transit-json"
+               (fn [err data]
+                 (reset! mapseq-data data)))
+
+    (.readFile fs "ds.transit-json"
+               (fn [err data]
+                 (reset! ds-data data))))
+
+
+  (def raw-data (time (transit-str->dataset (.toString @mapseq-data))))
+  ;;104ms
+  (def ds (time (transit-str->dataset (.toString @ds-data))))
+  ;; 11ms
+
+  (def dsum (time (reduce + (map :time raw-data))))
+  ;; 38ms
+  (def ddsum (time (reduce + (ds :time))))
+  ;;  0.4ms
+
+  (def sdata (time (cljs.core/sort-by :time raw-data)))
+  ;;373ms
+  (def sds (time (sort-by ds :time)))
+  ;;420ms
+  (def sds (time (sort-by-column ds :time)))
+  ;; 76ms
+
   )

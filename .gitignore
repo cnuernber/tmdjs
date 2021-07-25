@@ -1,4 +1,7 @@
 node_modules
 .cpcache
 .shadow-cljs
+.nrepl-port
 target
+*.transit-json
+*.transit-json.gz

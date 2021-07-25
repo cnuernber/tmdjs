@@ -8,16 +8,20 @@
             [tech.v3.datatype.packing :as packing]
             [tech.v3.datatype.datetime :as dtype-dt]
             [tech.v3.datatype.bitmap :as bitmap]
-            [tech.v3.datatype.nio-buffer :as nio-buffer]
             [primitive-math :as pmath]
             [cognitect.transit :as t])
   (:import [tech.v3.dataset.impl.dataset Dataset]
            [tech.v3.dataset.impl.column Column]
-           [java.nio ByteBuffer]
+           [java.nio ByteBuffer ByteOrder]
            [java.util Base64 HashMap]))
 
 (set! *warn-on-reflection* true)
 
+
+(defn le-bbuf
+  ^ByteBuffer [n-elems]
+  (-> (ByteBuffer/wrap (byte-array n-elems))
+      (.order ByteOrder/LITTLE_ENDIAN)))
 
 (defn numeric-data->b64
   [^Column col]
@@ -26,37 +30,37 @@
         ^ByteBuffer bbuf
         (case (casting/host-flatten (dtype/elemwise-datatype col))
           :int8
-          (let [retval (ByteBuffer/wrap (byte-array n-elems))
+          (let [retval (le-bbuf n-elems)
                 dst-data (dtype/->buffer retval)]
             (dotimes [idx (count col)]
               (.writeByte dst-data idx (unchecked-byte (.readLong src-data idx))))
             retval)
           :int16
-          (let [retval (ByteBuffer/wrap (byte-array (* Short/BYTES n-elems)))
+          (let [retval (le-bbuf (* Short/BYTES n-elems))
                 dst-data (.asShortBuffer retval)]
             (dotimes [idx (count col)]
               (.put dst-data idx (unchecked-short (.readLong src-data idx))))
             retval)
           :int32
-          (let [retval (ByteBuffer/wrap (byte-array (* Integer/BYTES n-elems)))
+          (let [retval (le-bbuf (* Integer/BYTES n-elems))
                 dst-data (.asIntBuffer retval)]
             (dotimes [idx (count col)]
               (.put dst-data idx (unchecked-int (.readLong src-data idx))))
             retval)
           :int64
-          (let [retval (ByteBuffer/wrap (byte-array (* Long/BYTES n-elems)))
+          (let [retval (le-bbuf (* Long/BYTES n-elems))
                 dst-data (.asLongBuffer retval)]
             (dotimes [idx (count col)]
               (.put dst-data idx (.readLong src-data idx)))
             retval)
           :float32
-          (let [retval (ByteBuffer/wrap (byte-array (* Float/BYTES n-elems)))
+          (let [retval (le-bbuf (* Float/BYTES n-elems))
                 dst-data (.asFloatBuffer retval)]
             (dotimes [idx (count col)]
               (.put dst-data idx (.readDouble src-data idx)))
             retval)
           :float64
-          (let [retval (ByteBuffer/wrap (byte-array (* Double/BYTES n-elems)))
+          (let [retval (le-bbuf (* Double/BYTES n-elems))
                 dst-data (.asDoubleBuffer retval)]
             (dotimes [idx (count col)]
               (.put dst-data idx (.readDouble src-data idx)))
@@ -124,7 +128,8 @@
 (defn b64->numeric-data
   [^String data dtype]
   (let [byte-data (.decode (Base64/getDecoder) (.getBytes data))
-        bbuf (ByteBuffer/wrap byte-data)]
+        bbuf (-> (ByteBuffer/wrap byte-data)
+                 (.order ByteOrder/LITTLE_ENDIAN))]
     (case dtype
       :int8 (dtype/->buffer byte-data)
       :uint8 (dtype/make-reader :uint8 (alength byte-data)
@@ -225,4 +230,26 @@
                    :f (repeat 5 (dtype-dt/local-date))
                    :g (repeat 5 (dtype-dt/instant))
                    :h [true false true true false]}))
+
+
+  (def test-data (vec (repeatedly 100000 #(hash-map :time (rand)
+                                                    :temp (rand)
+                                                    :valid? (if (> (rand) 0.5)
+                                                              true
+                                                              false)))))
+
+  (def test-ds (ds/->dataset test-data))
+
+  (require '[tech.v3.io :as io])
+
+  (defn t->file
+    [ds fname]
+    (with-open [outs (io/output-stream! fname)]
+      (dataset->transit ds outs)))
+
+  (time (t->file test-data "mapseq.transit-json"))
+  ;; 1027ms, 6.3MB raw, 1.9MB gzipped
+  (time (t->file test-ds "ds.transit-json"))
+  ;;   16ms, 2.2MB raw, 1.6MB gzipped
+
   )
