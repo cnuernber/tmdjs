@@ -240,16 +240,37 @@
 
   (def test-ds (ds/->dataset test-data))
 
-  (require '[tech.v3.io :as io])
+  (do
 
-  (defn t->file
-    [ds fname]
-    (with-open [outs (io/output-stream! fname)]
-      (dataset->transit ds outs)))
+    (require '[tech.v3.io :as io])
+
+    (defn t->file
+      [ds fname]
+      (with-open [outs (io/output-stream! fname)]
+        (dataset->transit ds outs))))
 
   (time (t->file test-data "mapseq.transit-json"))
   ;; 1027ms, 6.3MB raw, 1.9MB gzipped
+
   (time (t->file test-ds "ds.transit-json"))
   ;;   16ms, 2.2MB raw, 1.6MB gzipped
+
+  (do
+    (def stocks (ds/->dataset "https://github.com/techascent/tech.ml.dataset/raw/master/test/data/stocks.csv" {:key-fn keyword}))
+
+    (io/make-parents "test/data/stocks.transit-json")
+    (t->file stocks "test/data/stocks.transit-json"))
+
+  (require '[tech.v3.datatype.functional :as dfn])
+
+  (->> (ds/group-by-column stocks :symbol)
+       (map (fn [[k v]]
+              [k (-> (dfn/mean (v :price))
+                     (* 100)
+                     (Math/round)
+                     (/ 100.0))]))
+       (into {}))
+  ;;{"MSFT" 24.74, "AMZN" 47.99, "IBM" 91.26, "GOOG" 415.87, "AAPL" 64.73}
+
 
   )

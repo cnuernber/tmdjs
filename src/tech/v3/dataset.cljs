@@ -794,6 +794,16 @@ user> (ds/missing (*1 :c))
     (.read reader json-data)))
 
 
+(defn transit-file->dataset
+  [fname]
+  (let [fs (js/require "fs")]
+    ;;returns buffer
+    (-> (.readFileSync fs fname)
+        ;;utf-8 encoded string
+        (.toString)
+        (transit-str->dataset))))
+
+
 (comment
   (do
     (def test-data (repeatedly 50000 #(hash-map

@@ -2,6 +2,7 @@
   (:require [cljs.test :refer [deftest is run-tests]]
             [tech.v3.dataset :as ds]
             [tech.v3.datatype :as dtype]
+            [tech.v3.datatype.functional :as dfn]
             [tech.v3.datatype.datetime :as dtype-dt]))
 
 
@@ -108,3 +109,16 @@
            (ds/rowvec-at ds 0)))
     (is (= (hash [0 0 :b])
            (hash (ds/rowvec-at ds 0))))))
+
+
+(deftest stocks-test
+  (let [stocks (ds/transit-file->dataset "test/data/stocks.transit-json")
+        stock-agg (->> (ds/group-by-column stocks :symbol)
+                       (map (fn [[k v]]
+                              [k (-> (dfn/mean (v :price))
+                                     (* 100)
+                                     (Math/round)
+                                     (/ 100.0))]))
+                       (into {}))]
+    (is (= {"MSFT" 24.74, "AMZN" 47.99, "IBM" 91.26, "GOOG" 415.87, "AAPL" 64.73}
+           stock-agg))))
