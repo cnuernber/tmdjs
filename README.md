@@ -16,3 +16,7 @@ There is a test script - `scripts/run-tests` that does:
 
 * clj -M:cljs compile app
 * node target/test.js
+
+### Install locally and try on different project
+
+* scripts/install-local
