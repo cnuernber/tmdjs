@@ -1,0 +1,8 @@
+#!/bin/bash
+
+set -e
+
+scripts/run-tests
+clj -X:codox
+clj -X:depstar
+clj -X:install

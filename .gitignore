@@ -5,3 +5,4 @@ node_modules
 target
 *.transit-json
 *.transit-json.gz
+pom.xml

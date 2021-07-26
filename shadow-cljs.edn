@@ -2,6 +2,6 @@
  ;; set an nrepl port for connection to a REPL.
  :nrepl {:port 8777}
  :source-paths ["src" "test"]
- :builds {:app {:target :node-test
-                :output-to "target/test.js"
-                :ns-regexp ".*test$"}}}
+ :builds {:test {:target :node-test
+                 :output-to "target/test.js"
+                 :ns-regexp ".*test$"}}}
