@@ -1,0 +1,11 @@
+{:deps true
+ ;; set an nrepl port for connection to a REPL.
+ :nrepl {:port 8777}
+ :builds {;; example build config, usage suitable for user apps
+          :app {:target :browser
+                ;;module :app will output data to app.js
+                :modules {:app {:init-fn testapp.webapp/init}}
+                :output-dir "resources/public/js"
+                :asset-path "js"
+                :devtools {:http-root "resources/public"
+                           :http-port 8700}}}}

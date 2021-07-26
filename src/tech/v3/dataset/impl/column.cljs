@@ -153,6 +153,7 @@
       (new-column new-buf new-missing (meta col) numeric?)))
   ds-proto/PColumn
   (-is-column? [this] true)
+  (-column-buffer [this] buf)
   ds-proto/PRowCount
   (-row-count [this] (count buf))
   ds-proto/PMissing

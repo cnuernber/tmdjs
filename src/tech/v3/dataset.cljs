@@ -5,7 +5,7 @@
             [tech.v3.datatype.arrays :as arrays]
             [tech.v3.datatype.datetime :as dtype-dt]
             [tech.v3.dataset.impl.dataset :as ds-impl]
-            [tech.v3.dataset.impl.column :as col-impl]
+            [tech.v3.dataset.impl.column :as col-impl :refer [Column]]
             [tech.v3.dataset.protocols :as ds-proto]
             [tech.v3.dataset.io.column-parsers :as col-parsers]
             [base64-js :as b64]
@@ -634,11 +634,12 @@ user> (ds/missing (*1 :c))
 
 (defn- numeric-data->b64
   [data]
-  (-> (clone data)
-      (dtype/ensure-typed-array)
-      (aget "buffer")
-      (js/Uint8Array.)
-      (b64/fromByteArray)))
+  (let [data (clone data)
+        data (dtype/ensure-typed-array data)]
+    (-> data
+        (.-buffer)
+        (js/Uint8Array.)
+        (b64/fromByteArray))))
 
 
 (defn- string-col->data
@@ -669,7 +670,7 @@ user> (ds/missing (*1 :c))
       (numeric-data->b64)))
 
 
-(defn- col->data
+(defn column->data
   [col]
   (let [col-dt (dtype/elemwise-datatype col)]
     {:metadata (meta col)
@@ -678,9 +679,9 @@ user> (ds/missing (*1 :c))
      :data
      (cond
        (dtype/numeric-type? col-dt)
-       (numeric-data->b64 (aget col "buf"))
+       (numeric-data->b64 (ds-proto/-column-buffer col))
        (= :boolean col-dt)
-       (numeric-data->b64 (dtype/make-container :uint8 (aget col "buf")))
+       (numeric-data->b64 (dtype/make-container :uint8 (ds-proto/-column-buffer col)))
        (= :string col-dt)
        (string-col->data col)
        (= :local-date col-dt)
@@ -688,7 +689,7 @@ user> (ds/missing (*1 :c))
        (= :instant col-dt)
        (obj-col->numeric-b64 col :int64 dtype-dt/instant->epoch-milliseconds)
        :else
-       (dtype/as-js-array (dtype/make-container :object (aget col "buf"))))}))
+       (dtype/as-js-array (dtype/make-container :object (ds-proto/-column-buffer col))))}))
 
 
 (defn dataset->data
@@ -698,13 +699,13 @@ user> (ds/missing (*1 :c))
   {:metadata (meta ds)
    :flavor :transit
    :version 1
-   :columns (mapv col->data (columns ds))})
+   :columns (mapv column->data (columns ds))})
 
 
 (defn- b64->numeric-data
   [b64data dtype]
   (let [bdata (-> (b64/toByteArray b64data)
-                  (aget "buffer"))]
+                  (.-buffer))]
     (case dtype
       :int8 (js/Int8Array. bdata)
       :uint8 bdata
@@ -728,43 +729,46 @@ user> (ds/missing (*1 :c))
     coldata))
 
 
+(defn data->column
+  [{:keys [metadata missing data]}]
+  (let [dtype (:datatype metadata)]
+    #:tech.v3.dataset{:metadata metadata
+                      :missing (dtype/->js-set missing)
+                      ;;do not re-scan data.
+                      :force-datatype? true
+                      :data
+                      (cond
+                        (dtype/numeric-type? dtype)
+                        (b64->numeric-data data dtype)
+                        (= :boolean dtype)
+                        (arrays/make-boolean-array (b64/toByteArray data))
+                        (= :string dtype)
+                        (str-data->coldata data)
+                        (= :local-date dtype)
+                        (->> (b64->numeric-data data :int32)
+                             (dtype/emap dtype-dt/epoch-days->local-date :local-date))
+                        (= :instant dtype)
+                        (->> (b64->numeric-data data :int64)
+                             ;;int64 data comes out as js/bigints
+                             (dtype/emap #(-> (js/Number. %)
+                                              (dtype-dt/epoch-milliseconds->instant))
+                                         :instant))
+                        :else
+                        (if (and (dtype/counted? data)
+                                 (dtype/indexed? data))
+                          ;;access data in place
+                          (arrays/make-typed-buffer data dtype)
+                          (dtype/make-container dtype data)))
+                      :name (:name metadata)}))
+
+
 (defn data->dataset
   [ds-data]
   (when-not (and (contains? ds-data :metadata)
                  (contains? ds-data :columns))
     (throw (js/Error. "This does not seem like dataset data, missing required keys")))
   (->> (:columns ds-data)
-       (map
-        (fn [{:keys [metadata missing data]}]
-          (let [dtype (:datatype metadata)]
-            #:tech.v3.dataset{:metadata metadata
-                              :missing (dtype/->js-set missing)
-                              ;;do not re-scan data.
-                              :force-datatype? true
-                              :data
-                              (cond
-                                (dtype/numeric-type? dtype)
-                                (b64->numeric-data data dtype)
-                                (= :boolean dtype)
-                                (arrays/make-boolean-array (b64/toByteArray data))
-                                (= :string dtype)
-                                (str-data->coldata data)
-                                (= :local-date dtype)
-                                (->> (b64->numeric-data data :int32)
-                                     (dtype/emap dtype-dt/epoch-days->local-date :local-date))
-                                (= :instant dtype)
-                                (->> (b64->numeric-data data :int64)
-                                     ;;int64 data comes out as js/bigints
-                                     (dtype/emap #(-> (js/Number. %)
-                                                      (dtype-dt/epoch-milliseconds->instant))
-                                                 :instant))
-                                :else
-                                (if (and (dtype/counted? data)
-                                         (dtype/indexed? data))
-                                  ;;access data in place
-                                  (arrays/make-typed-buffer data dtype)
-                                  (dtype/make-container dtype data)))
-                              :name (:name metadata)})))
+       (map data->column)
        (ds-impl/new-dataset (:metadata ds-data))))
 
 

@@ -1,0 +1,39 @@
+{:paths ["src" "resources"]
+ :deps {com.cnuernber/tmdjs {:mvn/version "1.00-beta-1-SNAPSHOT"}
+        http-kit/http-kit {:mvn/version "2.5.3"}
+        hiccup/hiccup {:mvn/version"1.0.5"}
+        bidi/bidi {:mvn/version "2.1.6"}
+        ring/ring {:mvn/version "1.7.0"}
+        ring/ring-codec {:mvn/version "1.1.3"}
+        metosin/muuntaja {:mvn/version "0.6.8"}
+        amalloy/ring-gzip-middleware {:mvn/version "0.1.4"}}
+ :aliases
+ {:cljs
+  {:extra-deps {thheller/shadow-cljs {:mvn/version "2.12.4"}
+                cider/cider-nrepl {:mvn/version "0.26.0"}
+                cljs-ajax/cljs-ajax {:mvn/version "0.8.3"}
+                re-frame/re-frame {:mvn/version "1.2.0"}}
+   ;;dev-resources contains logback.xml which disables annoying jboss logging
+   :extra-paths ["dev-resources"]
+   :main-opts ["-m" "shadow.cljs.devtools.cli"]}
+
+  ;;used for installing base package.json
+  ;;clj -M:cljs-install -m cljs.main --install-deps
+  :cljs-install
+  {:extra-deps {thheller/shadow-cljs {:mvn/version "2.12.4"}
+                cljs-ajax/cljs-ajax {:mvn/version "0.8.0"}
+                re-frame/re-frame {:mvn/version "1.2.0"}}}
+  :standalone-server
+  {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.0.193"}}
+   :ns-default hf.depstar
+   :exec-fn hf.depstar/uberjar
+   :exec-args {:group-id "com.cnuernber"
+               :artifact-id "testapp"
+               :version "1.00-beta-1"
+               :sync-pom true
+               :aot true
+               :main-class testapp.main
+               :jar "target/testapp.jar"
+               ;;Disable tensor code generation and ensure direct linking.
+               :jvm-opts ["-Dclojure.compiler.direct-linking=true"
+                          "-Dclojure.spec.skip-macros=true"]}}}}

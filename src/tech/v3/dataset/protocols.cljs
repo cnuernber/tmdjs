@@ -16,7 +16,8 @@
   (-select-columns [this colnames]))
 
 (defprotocol PColumn
-  (-is-column? [col]))
+  (-is-column? [col])
+  (-column-buffer [col]))
 
 
 (defprotocol PDataset

@@ -28,28 +28,38 @@
 
 (defn argfilter
   "Return an array of indexes that pass the filter."
-  [pred data]
-  (let [data (dt-base/ensure-indexable data)
-        n-data (count data)]
-    (case :list-filter
-      :ary-filter
-      (let [indexes (dt-cmc/make-container :int32 (range n-data))
-            idx-ary (dt-base/as-typed-array indexes)]
-        (if-let [data (dt-base/as-agetable data)]
-          (.filter idx-ary #(boolean (pred (aget data %))))
-          (.filter idx-ary #(boolean (pred (nth data %)))))
-        indexes)
-      :list-filter
-      (let [indexes (dt-list/make-list :int32)
-            n-data (count data)]
-        (if-let [data (dt-base/as-agetable data)]
-          (dotimes [idx n-data]
-            (when (pred (aget data idx))
-              (dt-proto/-add indexes idx)))
-          (dotimes [idx n-data]
-            (when (pred (nth data idx))
-              (dt-proto/-add indexes idx))))
-        indexes))))
+  ([pred data]
+   (let [data (dt-base/ensure-indexable data)
+         n-data (count data)]
+     (case :list-filter
+       :ary-filter
+       (let [indexes (dt-cmc/make-container :int32 (range n-data))
+             idx-ary (dt-base/as-typed-array indexes)]
+         (if-let [data (dt-base/as-agetable data)]
+           (.filter idx-ary #(boolean (pred (aget data %))))
+           (.filter idx-ary #(boolean (pred (nth data %)))))
+         indexes)
+       :list-filter
+       (let [indexes (dt-list/make-list :int32)
+             n-data (count data)]
+         (if-let [data (dt-base/as-agetable data)]
+           (dotimes [idx n-data]
+             (when (pred (aget data idx))
+               (dt-proto/-add indexes idx)))
+           (dotimes [idx n-data]
+             (when (pred (-nth data idx))
+               (dt-proto/-add indexes idx))))
+         indexes))))
+  ;;In this case the data itself must be truthy.
+  ;;Avoids the use of an unnecessary predicate fn
+  ([data]
+   (let [data (dt-base/ensure-indexable data)
+         n-data (count data)
+         indexes (dt-list/make-list :int32)]
+     (dotimes [idx n-data]
+       (when (-nth data idx)
+         (dt-proto/-add indexes idx)))
+     indexes)))
 
 
 (defn arggroup
