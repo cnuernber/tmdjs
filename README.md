@@ -33,6 +33,10 @@ and IIndexed are the primary interfaces and
 creates a persistent-vector hash and equiv compatible object.
 
 
+If you are totally new to all of this please checkout my talk on [High Performance Data with Clojure](https://www.youtube.com/watch?v=5mUGu4RlwKE).
+Many more talks are available from my [github page](https://github.com/cnuernber).
+
+
 ## Example
 
 
