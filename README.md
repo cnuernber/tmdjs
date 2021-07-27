@@ -2,15 +2,20 @@
 
 [![Clojars Project](https://img.shields.io/clojars/v/com.cnuernber/tmdjs.svg)](https://clojars.org/com.cnuernber/tmdjs)
 
-Minimal cljs implementation of `tech.v3.datatype`, `tech.v3.datatype.functional`,
-`tech.v3.datatype.argops`, and `tech.v3.dataset`.  This implementation is based
+* [API Documentation](https://cnuernber.github.io/tmdjs/)
+
+Minimal cljs implementation of [tech.v3.datatype](https://cnuernber.github.io/tmdjs/tech.v3.datatype.html), 
+[tech.v3.datatype.functional](https://cnuernber.github.io/tmdjs/tech.v3.datatype.functional.html),
+[tech.v3.datatype.argops](https://cnuernber.github.io/tmdjs/tech.v3.datatype.argops.html), and 
+[tech.v3.dataset](https://cnuernber.github.io/tmdjs/tech.v3.dataset.html).  This implementation is based
 on typed-arrays for numeric data and js arrays for everything else so it should
-support all your favorite datatypes.  Support for `java.time.Instant` and
+support all your favorite datatypes.  Support for columns of type `java.time.Instant` and
 `java.time.LocalDate` is included.
 
 Datasets serialize and deserialize much faster than sequences of maps.  They use less
 memory and they allow faster columnwise operations.  To transform a sequence of maps
-into a dataset use `ds/->dataset`.  To get a sequence of maps back use `ds/rows`.
+into a dataset use [ds/->dataset](https://cnuernber.github.io/tmdjs/tech.v3.dataset.html#var--.3Edataset).
+To get a sequence of maps back use [ds/rows](https://cnuernber.github.io/tmdjs/tech.v3.dataset.html#var-rows).
 
 
 This library is mainly going to useful if you are dealing with large amounts of primarily
@@ -23,8 +28,9 @@ in a react-native application.
 Unlike the jvm-version this is a very minimal exposition of these concepts.  Since the
 underlying vm itself is typeless there was no need for a complex macro system to do
 unboxed math in loops so I could stay much closer to core clojure and in fact ICounted
-and IIndexed are the primary interfaces and `tech.v3.datatype/reify-reader` creates a
-persistent-vector hash and equiv compatible object.
+and IIndexed are the primary interfaces and 
+[tech.v3.datatype/reify-reader](https://cnuernber.github.io/tmdjs/tech.v3.datatype.html#var-reify-reader) 
+creates a persistent-vector hash and equiv compatible object.
 
 
 ## Example
