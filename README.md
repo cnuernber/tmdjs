@@ -75,6 +75,94 @@ handlers in your middleware stack.
                                    :raw (mapv (partial into {}) (ds/rows ds))))})
 ```
 
+
+#### Quick Walkthough
+
+```clojure
+;;Create a dataset from a map of columns
+cljs.user> (def ds (ds/->dataset {:a (range 100)
+                                  :b (take 100 (cycle [:a :b :c]))
+                                  :c (take 100 (cycle ["one" "two" "three"]))}))
+								  
+#'cljs.user/ds
+cljs.user> ds
+#dataset[unnamed [100 3]
+| :a | :b |    :c |
+|---:|----|-------|
+|  0 | :a |   one |
+|  1 | :b |   two |
+|  2 | :c | three |
+|  3 | :a |   one |
+|  4 | :b |   two |
+...
+
+;; Control column datatypes by using parser-fn which is very thoroughly documented in
+;; tech.ml.dataset api documentation
+
+cljs.user> (->> (ds/->dataset {:a (range 100)
+                               :b (take 100 (cycle [:a :b :c]))
+                               :c (take 100 (cycle ["one" "two" "three"]))}
+                              {:parser-fn {:a :int8}})
+                (vals)
+                (map (comp :datatype meta)))
+(:int8 :keyword :string)
+
+
+;; Datasets are always safe to print to your repl.  Only the first 25 rows are printed.
+;; You can use datasets like maps of columns - columns also are safe to print to your
+;; repl at all times.
+cljs.user> (ds :a)
+#column[[:float64 100][0 1 2 3 4 5 6 7 8 9 ... 90 91 92 93 94 95 96 97 98 99]
+
+;;Add a new column with map.
+cljs.user> (ds/head (assoc ds :aa (map #(* % %) (ds :a))))
+#dataset[unnamed [5 4]
+| :a | :b |    :c | :aa |
+|---:|----|-------|----:|
+|  0 | :a |   one |   0 |
+|  1 | :b |   two |   1 |
+|  2 | :c | three |   4 |
+|  3 | :a |   one |   9 |
+|  4 | :b |   two |  16 |]
+
+
+;; Column map is bit more efficient
+cljs.user> (ds/head (ds/column-map ds :aa #(* % %) [:a]))
+#dataset[unnamed [5 4]
+| :a | :b |    :c | :aa |
+|---:|----|-------|----:|
+|  0 | :a |   one |   0 |
+|  1 | :b |   two |   1 |
+|  2 | :c | three |   4 |
+|  3 | :a |   one |   9 |
+|  4 | :b |   two |  16 |]
+
+;; Remove columns with dissoc
+cljs.user> (ds/head (dissoc ds :c))
+#dataset[unnamed [5 2]
+| :a | :b |
+|---:|----|
+|  0 | :a |
+|  1 | :b |
+|  2 | :c |
+|  3 | :a |
+|  4 | :b |]
+
+;;select particular rows
+cljs.user> (ds/select-rows ds [1 3 5 7 9])
+#dataset[unnamed [5 3]
+| :a | :b |    :c |
+|---:|----|-------|
+|  1 | :b |   two |
+|  3 | :a |   one |
+|  5 | :c | three |
+|  7 | :b |   two |
+|  9 | :a |   one |]
+```
+
+
+* Once you have a dataset using the function in the dataset namespace to do columnwise
+  operations will usually be a bit quicker.
 * See [testapp](testapp) for a minimal quick walkthrough and verification that
 advanced optimizations do not break the api.
 
