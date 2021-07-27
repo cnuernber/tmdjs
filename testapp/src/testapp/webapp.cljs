@@ -4,8 +4,7 @@
             [reagent.ratom :refer [atom]]
             [ajax.core :refer [GET POST]]
             [tech.v3.dataset :as ds]
-            [tech.v3.datatype.functional :as dfn]
-            [tech.v3.datatype.argops :as argops]))
+            [tech.v3.datatype.functional :as dfn]))
 
 (defonce app* (atom {}))
 
