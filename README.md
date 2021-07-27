@@ -78,7 +78,7 @@ advanced optimizations do not break the api.
 ## Gotchas
 
 
-The js uint64 and int64 typed arrays produce BigNum objects.  When setting values
+The js `:uint64` and `:int64` typed arrays produce BigNum objects.  When setting values
 I transparently upcast to bignum but when getting values back you get bignums so
 be careful.  I suggest avoiding using them unless you are sure of what you are
 doing.  You can cast a bignum back to a number, with potential numeric loss,
