@@ -1,6 +1,7 @@
 (ns tech.v3.datatype
   "Support for programming with arrays and a fast set implementation for indexe (int32) values.
-  For complex/higher order algorithms see [[tech.v3.datatype.argops]]"
+  For complex/higher order algorithms see [[tech.v3.datatype.argops]].
+  For mathematical primitives, see [[tech.v3.datatype.functional]]"
   (:require [tech.v3.datatype.protocols :as dt-proto]
             [tech.v3.datatype.base :as dt-base]
             [tech.v3.datatype.copy-make-container :as dt-cmc]
@@ -14,48 +15,63 @@
 
 
 (defn ecount
+  "Compatibility with jvm-version.  All of the datatype objects
+  implement ICounted so cljs.core/count works fine."
   [item]
-  ;;just calls cljs.clone
   (dt-base/ecount item))
 
 
 (defn clone
-  "Here for compat with jvm system"
+  "Here for compat with jvm system.  All of the datatype objects
+  implement ICloneable so cljs.core/clone works fine."
   [item]
   (dt-base/clone item))
 
 
 (defn elemwise-datatype
+  "Get the datatype of the elements in the container."
   [item]
   (dt-base/elemwise-datatype item))
 
 
 (defn datatype
+  "Get the dataytpe of this object."
   [item]
   (dt-base/datatype item))
 
 
 (defn numeric-type?
+  "Return true if this datatype is a numeric type.  True for
+  :int8, :uint8 -> :int64, :uint64, float32, float64."
   [dtype]
   (when dtype (casting/numeric-type? dtype)))
 
 
 (defn as-typed-array
+  "Return the typed array data backing this container.  The object returned
+  may have a different elemwise-datatype than the container."
   [item]
   (dt-base/as-typed-array item))
 
 
 (defn as-js-array
+  "Return the js array data backing this container.  The object returned
+  may have a different elemwise-datatype than the container."
   [item]
   (dt-base/as-js-array item))
 
 
 (defn ensure-indexable
+  "Ensure this object is indexable.  If object is not indexable this calles
+  `(vec item)`"
   [item]
   (dt-base/ensure-indexable item))
 
 
 (defn as-agetable
+  "Return something that you can safely call `(aget item idx)` and that
+  will return data of the same datatype.  For `:int64` this may return
+  `BigNum` objects."
   [item]
   (dt-base/as-agetable item))
 
@@ -72,16 +88,25 @@
 
 
 (defn integer-range?
+  "Return true if this is a clojure integer range object."
   [item]
   (dt-base/integer-range? item))
 
 
 (defn iterate!
+  "Efficiently iterate through the data calling consume-fn on every
+  item.
+
+  Returns consume-fn."
   [consume-fn data]
   (dt-base/iterate! consume-fn data))
 
 
 (defn indexed-iterate!
+  "Efficiently iterate through the data calling consum-fn and passing
+  in an index for every item.
+
+  Returns consume-fn."
   [consume-fn data]
   (dt-base/indexed-iterate! consume-fn data))
 
@@ -100,26 +125,35 @@
 
 
 (defn counted?
+  "Return true of js arrays and anything implementing ICounted."
   [item]
   (dt-base/counted? item))
 
 
 (defn indexed?
+  "Return true for js arrays and anything implementing IIndexed."
   [item]
   (dt-base/indexed? item))
 
 
 (defn set-value!
+  "Set value on the item.  data may be a scalar or a sequence or
+  Indexable object in which case it will be copied into item
+  starting at idx.
+
+  Returns item"
   [item idx data]
   (dt-base/set-value! item idx data))
 
 
 (defn set-constant!
+  "Set a constant value starting at idx and continuing elem-count values."
   [item idx elem-count value]
   (dt-base/set-constant! item idx elem-count value))
 
 
 (defn copy!
+  "Copy src container into dest container."
   [src dest]
   (set-value! dest 0 src))
 
@@ -135,6 +169,7 @@
 
 
 (defn ensure-typed-array
+  "Ensure that itme is a typed array.  Only works for numeric datatypes."
   [item]
   (let [item-dt (elemwise-datatype item)]
     (when-not (numeric-type? item-dt)
@@ -147,7 +182,7 @@
 
 (defn make-list
   "Make a list.  Lists implement the tech.v3.datatype.protocols/PListLike protocol -
-  `-add`, `-add-all`"
+  `add!`, `add-all!`, `ensure-capacity!`"
   [dtype & [init-buf-size]]
   (dt-list/make-list dtype init-buf-size))
 
@@ -173,17 +208,6 @@
   (dt-proto/-ensure-capacity list buflen))
 
 
-(defn- maybe-min-count
-  [arg-seq]
-  (let [farg (first arg-seq)]
-    (when (counted? farg)
-      (reduce (fn [min-c arg]
-                (when (and min-c (counted? arg))
-                  (min min-c (count arg))))
-              (count farg)
-              (rest arg-seq)))))
-
-
 (defn ->js-set
   "Create a javascript set.  These have superior performance when dealing with numeric
   data but they fail completely when dealing with clojure data such as persistent maps
@@ -193,6 +217,8 @@
 
 
 (defn ->set
+  "Convert arbitrary data into a set appropriate for the data.  For numeric types,
+  javascript sets are fastest else use a clojure set."
   [data]
   (cond
     (or (set? data)
@@ -233,29 +259,44 @@
 
 
 (defn set-predicate
+  "Create a predicate out of a set.  For js sets, calls .has and for
+  Clojure sets just returns the set object."
   [set]
-  (if (instance? js/Set set)
+  (cond
+    (instance? js/Set set)
     #(.has set %)
-    set))
+    (set? set) set
+    :else
+    (throw (js/Error. "Item passed in is not a js set nor a cljs.core set."))))
+
 
 (defn set-predicate-complement
+  "Create a not-in-set predicate.  See docs for [[set-predicate]]"
   [set]
-  (if (instance? js/Set set)
+  (cond
+    (instance? js/Set set)
     #(not (.has set %))
-    #(not (set %))))
+    (set? set)
+    #(not (set %))
+    :else
+    (throw (js/Error. "Item passed in is not a js set nor a cljs.core set."))))
 
 
 (defn indexed-buffer
-  "Reindex the buffer via the given indexes returning a new buffer."
+  "Reindex the buffer via the given indexes returning a new buffer.  Unlike the jvm version
+  this most likely results in a new container."
   [indexes data]
   (dt-arrays/indexed-buffer indexes data))
 
 
 (defn reify-reader
-  ([n-elems dtype idx->val-fn]
+  "Create a new reader of elemwise-datatype dtype.  The returned reader correctly
+  implements hash and equiv such that it is indistinguishable from a persistent
+  vector created as `(mapv idx->val-fn (range n-elems))`"
+  ([dtype n-elems idx->val-fn]
    (rvec/reader-vec n-elems dtype idx->val-fn))
   ([n-elems idx->val-fn]
-   (reify-reader n-elems :object idx->val-fn)))
+   (reify-reader :object n-elems idx->val-fn)))
 
 
 (defn emap
@@ -271,21 +312,21 @@
         (case (count args)
           1  (let [arg (first args)
                    aarg (dt-base/as-agetable arg)]
-               (reify-reader n-elems ret-dtype (if aarg
+               (reify-reader ret-dtype n-elems (if aarg
                                                  #(map-fn (aget aarg %))
                                                  #(map-fn (nth arg %)))))
           2 (let [arg1 (first args)
                   arg2 (second args)]
-              (reify-reader n-elems ret-dtype #(map-fn (nth arg1 %)
+              (reify-reader ret-dtype n-elems #(map-fn (nth arg1 %)
                                                        (nth arg2 %))))
           3 (let [arg1 (nth args 0)
                   arg2 (nth args 1)
                   arg3 (nth args 3)]
-              (reify-reader n-elems ret-dtype #(map-fn (nth arg1 %)
+              (reify-reader ret-dtype n-elems #(map-fn (nth arg1 %)
                                                        (nth arg2 %)
                                                        (nth arg3 %))))
-          (reify-reader n-elems
-                        ret-dtype
+          (reify-reader ret-dtype
+                        n-elems
                         (fn [idx] (apply map-fn (map #(nth % idx) args))))))
       (if (= ret-dtype :object)
         (apply map map-fn args)

@@ -14,5 +14,9 @@ This is what I have so far to make development quick
 
 There is a test script - `scripts/run-tests` that does:
 
-* clj -M:cljs compile app
+* clj -M:cljs compile test
 * node target/test.js
+
+### License
+
+* MIT

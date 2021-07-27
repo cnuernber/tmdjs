@@ -1,4 +1,33 @@
 (ns tech.v3.dataset
+  "Dataframe (map of columns) data processing system for clojurescript.
+  This API is a simplified version of the
+  [jvm-version's api](https://techascent.github.io/tech.ml.dataset/).
+
+  Datasets are maps of columns so assoc will add a new column and dissoc
+  can remove a column.  In addition they allow very fast subrect selection,
+  filtering, sorting, concatenation and grouping (group-by).  The columnwise
+  analogues are always a lot faster than the general analogues so for instance
+  `sort-by-column` is much faster than `sort-by`.
+
+  Datasets serialize and deserialize to transit (or anything else) much faster
+  than a sequence of maps and they take up less memory overall.
+
+```clojure
+cljs.user> (require '[tech.v3.dataset :as ds])
+nil
+
+cljs.user> (-> (ds/->dataset {:a (range 100)
+                              :b (take 100 (cycle [\"hey\" \"you\" \"goonies\"]))})
+               (ds/head))
+#dataset[unnamed [5 2]
+| :a |      :b |
+|---:|---------|
+|  0 |     hey |
+|  1 |     you |
+|  2 | goonies |
+|  3 |     hey |
+|  4 |     you |]
+```"
   (:require [tech.v3.datatype :as dtype]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.argops :as argops]
@@ -14,7 +43,7 @@
   (:refer-clojure :exclude [concat update filter sort-by group-by]))
 
 
-(defn options->parser-fn
+(defn- options->parser-fn
   [options]
   (let [parse-map* (atom {})
         key-fn (get options :key-fn identity)
@@ -73,7 +102,24 @@
 (defn ->dataset
   "Convert either a sequence of maps or a map of columns into a dataset.
   Options are similar to the jvm version of tech.v3.dataset in terms of
-  parser-fn."
+  parser-fn.  This function can take either a sequence of maps or a map of
+  columns.
+
+  Examples:
+```clojure
+cljs.user> (->> (ds/->dataset {:a (range 100)
+                               :b (take 100 (cycle [\"hey\" \"you\" \"goonies\"]))})
+                (vals)
+                (map (comp :datatype meta)))
+(:float64 :string)
+
+cljs.user> (->> (ds/->dataset {:a (range 100)
+                               :b (take 100 (cycle [\"hey\" \"you\" \"goonies\"]))}
+                              {:parser-fn {:a :int8}})
+                (vals)
+                (map (comp :datatype meta)))
+(:int8 :string)
+```"
   ([data options]
    (if (nil? data)
      (ds-impl/new-dataset options)
@@ -88,6 +134,7 @@
   ([] (ds-impl/new-dataset)))
 
 (defn ->>dataset
+  "data-last analogue of [[->dataset]] for use in `->>` macros."
   ([options data]
    (->dataset data options))
   ([data]
@@ -95,12 +142,15 @@
 
 
 (defn dataset?
+  "Return true of this is a dataset."
   [ds]
   (when ds
     (ds-proto/-is-dataset? ds)))
 
 
 (defn missing
+  "Return the missing set as a clojure set.  The underlying protocol returns
+  missing sets as js sets as those have superior performance when using numbers."
   [ds-or-col]
   ;;The base missing sets are js sets but interacting with js-sets in Clojure
   ;;is for the birds.
@@ -108,6 +158,7 @@
 
 
 (defn row-count
+  "Integer row count of the dataset."
   [ds-or-col]
   (if (nil? ds-or-col)
     0
@@ -115,6 +166,7 @@
 
 
 (defn column-count
+  "Integer column count of the dataset."
   [ds]
   (if (nil? ds)
     0
@@ -122,16 +174,19 @@
 
 
 (defn columns
+  "Return the columns, in order, of the dataset."
   [ds]
   (vals ds))
 
 
 (defn column-names
+  "Return the column names as a sequence."
   [ds]
   (keys ds))
 
 
 (defn column
+  "Return the column at positing k.  Failing to find the column is an error."
   [ds k]
   (if-let [col (ds k)]
     col
@@ -162,6 +217,7 @@
 
 
 (defn select-rows
+  "Select these row indexes out of the dataset."
   [ds rowidxs]
   (ds-proto/-select-rows ds (if (or (set? rowidxs)
                                     (instance? js/Set rowidxs))
@@ -170,6 +226,7 @@
 
 
 (defn remove-rows
+  "Remove these row indexes out of the dataset."
   [ds rowidxs]
   (let [sdata (if (instance? js/Set rowidxs)
                 rowidxs
@@ -182,11 +239,14 @@
 
 
 (defn select-columns
+  "Select these column in this order.  This can be used both to select specific columns
+  and to set the order of columns."
   [ds colnames]
   (ds-proto/-select-columns ds colnames))
 
 
 (defn remove-columns
+  "Remove these columns from the dataset."
   [ds colnames]
   (let [colnames (set colnames)
         ds-colnames (set (column-names ds))
@@ -195,6 +255,8 @@
 
 
 (defn rename-columns
+  "Given a map of old-name->new-name, rename some subset of columns
+  without changing their column order."
   [ds rename-map]
   (->> (columns ds)
        (map (fn [col]
@@ -204,12 +266,14 @@
 
 
 (defn select
+  "Select a subrect of the dataset."
   [ds cols rows]
   (-> (select-columns ds cols)
       (select-rows rows)))
 
 
 (defn head
+  "Return the first n rows of the dataset."
   ([ds n]
    (let [n (min n (row-count ds))]
      (-> (select-rows ds (range n))
@@ -218,6 +282,7 @@
 
 
 (defn tail
+  "Return the last n rows of the dataset."
   ([ds n]
    (let [n (min n (row-count ds))]
      (-> (select-rows ds (range (- (row-count ds) n) (row-count ds)))
@@ -226,9 +291,13 @@
 
 
 (defn filter-column
-  [ds colname pred]
+  "Filter the dataset by column colname.  If pred isn't passed in the column's values
+  are treated as truthy."
+  [ds colname & [pred]]
   (let [coldata (column ds colname)]
-    (select-rows ds (argops/argfilter pred coldata))))
+    (if pred
+      (select-rows ds (argops/argfilter pred coldata))
+      (select-rows ds (argops/argfilter coldata)))))
 
 
 (defn filter
@@ -238,13 +307,14 @@
 
 
 (defn sort-by-column
+  "Sort the dataset by column colname"
   [ds colname & [sort-op]]
   (let [coldata (column ds colname)]
     (select-rows ds (argops/argsort sort-op coldata))))
 
 
 (defn sort-by
-  "Sort dataset by "
+  "Sort dataset by keyfn.  Keyfn is passed each row as a map."
   [ds keyfn & [comp]]
   (let [ds-rows (rows ds)]
     (select-rows ds (argops/argsort comp (dtype/reify-reader
@@ -253,6 +323,7 @@
 
 
 (defn group-by-column
+  "Group the dataset by column colname"
   [ds colname]
   (let [coldata (column ds colname)
         group-map (argops/arggroup coldata)]
@@ -263,6 +334,8 @@
 
 
 (defn group-by
+  "Group the dataset by the values returned from passing f over each row, represented as a
+  map, of the dataset."
   [ds f]
   (let [ds-rows (rows ds)
         group-map (argops/arggroup (dtype/reify-reader (row-count ds) #(f (ds-rows %))))]
@@ -281,8 +354,9 @@
       (let [seen (js/Set.)]
         (dtype/indexed-iterate!
          (fn [idx val]
-           (when-not (.has seen val) (dtype/add! passidx idx))
-           (.add seen val))
+           (when-not (.has seen val)
+             (dtype/add! passidx idx)
+             (.add seen val)))
          coldata))
       (let [n-elems (count coldata)]
         (loop [idx 0
@@ -292,6 +366,22 @@
               (when-not (seen val)
                 (dtype/add! passidx idx))
               (recur (unchecked-inc idx) (conj! seen val)))))))
+    (select-rows ds passidx)))
+
+
+(defn unique-by
+  "Unique-by taking first"
+  [ds f]
+  (let [passidx (dtype/make-list :int32)
+        rows (rows ds)]
+    (let [n-elems (row-count ds)]
+      (loop [idx 0
+             seen (transient #{})]
+        (when (< idx n-elems)
+          (let [val (f (rows idx))]
+            (when-not (seen val)
+              (dtype/add! passidx idx))
+            (recur (unchecked-inc idx) (conj! seen val))))))
     (select-rows ds passidx)))
 
 
@@ -352,7 +442,7 @@
     (nil? rhs) (repeat n-missing lhs)
     :else
     (let [val-rng (- rhs lhs)]
-      (dtype/reify-reader n-missing col-dtype
+      (dtype/reify-reader col-dtype n-missing
                           (fn [idx]
                             (let [rel-idx (/ (double (inc idx)) (+ n-missing 1))]
                               (+ lhs (* rel-idx val-rng))))))))
@@ -671,6 +761,7 @@ user> (ds/missing (*1 :c))
 
 
 (defn column->data
+  "Transform a column in raw data safe for passing to transit or edn."
   [col]
   (let [col-dt (dtype/elemwise-datatype col)]
     {:metadata (meta col)
@@ -730,6 +821,7 @@ user> (ds/missing (*1 :c))
 
 
 (defn data->column
+  "Transform data produced via column->data into a column"
   [{:keys [metadata missing data]}]
   (let [dtype (:datatype metadata)]
     #:tech.v3.dataset{:metadata metadata
@@ -763,6 +855,7 @@ user> (ds/missing (*1 :c))
 
 
 (defn data->dataset
+  "Given data produced via dataset->data create a new dataset."
   [ds-data]
   (when-not (and (contains? ds-data :metadata)
                  (contains? ds-data :columns))
@@ -773,12 +866,13 @@ user> (ds/missing (*1 :c))
 
 
 (defn transit-write-handler-map
+  "Return a map mapping the dataset type to a transit writer handler."
   []
   {ds-impl/Dataset (t/write-handler (constantly "tech.v3.dataset") dataset->data)})
 
 
 (defn dataset->transit-str
-  "Using default json transit format, convert a dataset into a string."
+  "Write a transit string adding in the dataset write handler"
   [ds & [format handlers]]
   (let [writer (t/writer (or format :json)
                          {:handlers (merge (transit-write-handler-map) handlers)})]
@@ -786,11 +880,13 @@ user> (ds/missing (*1 :c))
 
 
 (defn transit-read-handler-map
+  "Return a map mapping the dataset tag to a transit read handler."
   []
   {"tech.v3.dataset" data->dataset})
 
 
 (defn transit-str->dataset
+  "Parse a transit string adding in the dataset read handler"
   [json-data & [format handlers]]
   (let [reader (t/reader (or format :json)
                          {:handlers (merge (transit-read-handler-map) handlers)})]
@@ -798,6 +894,7 @@ user> (ds/missing (*1 :c))
 
 
 (defn transit-file->dataset
+  "Given a file of transit data return a dataset.  This only works on Node."
   [fname]
   (let [fs (js/require "fs")]
     ;;returns buffer
@@ -868,10 +965,10 @@ user> (ds/missing (*1 :c))
   ;;  0.4ms
 
   (def sdata (time (cljs.core/sort-by :time raw-data)))
-  ;;373ms
+  ;;373ms in node, 100ms in browser
   (def sds (time (sort-by ds :time)))
-  ;;420ms
+  ;;420ms - constructing the row maps takes time.
   (def sds (time (sort-by-column ds :time)))
-  ;; 76ms
+  ;; 76ms - but going column-wise is much faster.
 
   )

@@ -6,3 +6,4 @@ target
 *.transit-json
 *.transit-json.gz
 pom.xml
+*.pom.asc

@@ -19,7 +19,7 @@
    :exec-fn hf.depstar/jar
    :exec-args {:group-id "com.cnuernber"
                :artifact-id "tmdjs"
-               :version "1.00-beta-1-SNAPSHOT"
+               :version "1.000-beta-1"
                :sync-pom true
                :jar "target/tmdjs.jar"}}
 
@@ -44,7 +44,7 @@
 
   ;;Writes docs into docs/index.html
   ;;clj -X:cljs-docs
-  :cljs-docs
+  :codox
   {:extra-deps {codox-theme-rdash/codox-theme-rdash {:mvn/version "0.1.2"}
                 com.cnuernber/codox {:mvn/version "1.00-SNAPSHOT"}
                 thheller/shadow-cljs {:mvn/version "2.12.4"}
@@ -61,4 +61,5 @@
                :source-uri "https://github.com/cnuernber/tmdjs/blob/master/{filepath}#L{line}"
                :namespaces [tech.v3.dataset
                             tech.v3.datatype
-                            tech.v3.datatype.functional]}}}}
+                            tech.v3.datatype.functional
+                            tech.v3.datatype.argops]}}}}

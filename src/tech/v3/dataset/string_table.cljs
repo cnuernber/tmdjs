@@ -34,6 +34,11 @@
                         (take 20 (seq container)))))
   dt-proto/PElemwiseDatatype
   (-elemwise-datatype [this] :string)
+  dt-proto/PSubBuffer
+  (-sub-buffer [this off len]
+    (StringTable. (dtype/sub-buffer container off len)
+                  str-table
+                  metadata))
   dt-proto/PListLike
   (-add [this val]
     (let [val (if val (intern-string val str-table) val)]
