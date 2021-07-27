@@ -75,6 +75,19 @@ handlers in your middleware stack.
 advanced optimizations do not break the api.
 
 
+## Gotchas
+
+
+The js uint64 and int64 typed arrays produce BigNum objects.  When setting values
+I transparently upcast to bignum but when getting values back you get bignums so
+be careful.  I suggest avoiding using them unless you are sure of what you are
+doing.  You can cast a bignum back to a number, with potential numeric loss,
+with `(js/Number. bn)`.  This is unfortunate because the default clojure number
+type on the jvm is a long and a dataset of longs has a column of type `:int64` and
+thus if you naively send it over the wire you will have issues trying to work with
+that dataset in your code.
+
+
 ## Development
 
 This is what I have so far to make development quick
