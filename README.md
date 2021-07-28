@@ -179,7 +179,7 @@ testapp.webapp> (def ignored (aset js/window "AAAANumber" (vec (repeatedly 1000 
 #'testapp.webapp/ignored
 ```
 
-![heap profile](docs/images/memcmp.png)
+![heap profile](docs/images/memcomp.png)
 
 
 ## Gotchas
