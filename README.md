@@ -166,6 +166,21 @@ cljs.user> (ds/select-rows ds [1 3 5 7 9])
 * See [testapp](testapp) for a minimal quick walkthrough and verification that
 advanced optimizations do not break the api.
 
+## Chrome Heap Measurements.
+
+
+Be sure to include numbers in your measurements - 
+
+
+```clojure
+testapp.webapp> (def ignored (aset js/window "AAAATyped" (ds/->dataset (repeatedly 1000 #(hash-map :time (rand) :temp (rand))))))
+#'testapp.webapp/ignored
+testapp.webapp> (def ignored (aset js/window "AAAANumber" (vec (repeatedly 1000 #(hash-map :time (rand) :temp (rand))))))
+#'testapp.webapp/ignored
+```
+
+![heap profile](docs/images/memcmp.png)
+
 
 ## Gotchas
 
@@ -200,6 +215,11 @@ There is a test script - `scripts/run-tests` that does:
 ### Install locally and try on different project
 
 * scripts/install-local
+
+## Talk About It
+
+* [Zulip Data Science/tech.ml.dataset](https://clojurians.zulipchat.com/#narrow/stream/151924-data-science/topic/tech.2Eml.2Edataset)
+* [Zulip tech.ml.dataset.dev](https://clojurians.zulipchat.com/#narrow/stream/236259-tech.2Eml.2Edataset.2Edev)
 
 ### License
 

@@ -1,4 +1,4 @@
-{:paths ["src" "resources"]
+{:paths ["src"]
  ;;We serialize datasets to transit-json
  :deps {com.cognitect/transit-cljs {:mvn/version "0.8.269"}
         techascent/tech.ml.dataset {:mvn/version "6.006"}
