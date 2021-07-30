@@ -113,6 +113,11 @@
 (declare make-dataset)
 
 (deftype Dataset [col-ary colname->col metadata ^:mutable hashcode]
+  Object
+  (toString [coll]
+    (pr-str* coll))
+  (equiv [this other]
+    (-equiv this other))
   ICounted
   (-count [this] (count col-ary))
 

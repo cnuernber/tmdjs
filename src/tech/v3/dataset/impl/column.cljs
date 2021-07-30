@@ -58,6 +58,11 @@
 
 
 (deftype Column [buf missing metadata numeric? ^:mutable hashcode]
+  Object
+  (toString [coll]
+    (pr-str* coll))
+  (equiv [this other]
+    (-equiv this other))
   ICounted
   (-count [this] (count buf))
   ICloneable
