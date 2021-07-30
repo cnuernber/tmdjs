@@ -169,8 +169,8 @@ advanced optimizations do not break the api.
 ## Chrome Heap Measurements.
 
 For a 2-column dataset of just time and temperature of random double data dataset is about
-10X smaller than a sequence of maps.  More columns or choosing different datatypes for the
-columns will change the results.
+18X smaller than a sequence of maps.  More columns or choosing different datatypes for the
+columns will change the results in various ways but 10X isn't unreasonable.
 
 
 ```clojure
