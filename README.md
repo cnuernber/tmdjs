@@ -4,9 +4,9 @@
 
 * [API Documentation](https://cnuernber.github.io/tmdjs/)
 
-Minimal cljs implementation of [tech.v3.datatype](https://cnuernber.github.io/tmdjs/tech.v3.datatype.html), 
+Minimal cljs implementation of [tech.v3.datatype](https://cnuernber.github.io/tmdjs/tech.v3.datatype.html),
 [tech.v3.datatype.functional](https://cnuernber.github.io/tmdjs/tech.v3.datatype.functional.html),
-[tech.v3.datatype.argops](https://cnuernber.github.io/tmdjs/tech.v3.datatype.argops.html), and 
+[tech.v3.datatype.argops](https://cnuernber.github.io/tmdjs/tech.v3.datatype.argops.html), and
 [tech.v3.dataset](https://cnuernber.github.io/tmdjs/tech.v3.dataset.html).  This implementation is based
 on typed-arrays for numeric data and js arrays for everything else so it should
 support all your favorite datatypes.  Support for columns of type `java.time.Instant` and
@@ -28,8 +28,8 @@ in a react-native application.
 Unlike the jvm-version this is a very minimal exposition of these concepts.  Since the
 underlying vm itself is typeless there was no need for a complex macro system to do
 unboxed math in loops so I could stay much closer to core clojure and in fact ICounted
-and IIndexed are the primary interfaces and 
-[tech.v3.datatype/reify-reader](https://cnuernber.github.io/tmdjs/tech.v3.datatype.html#var-reify-reader) 
+and IIndexed are the primary interfaces and
+[tech.v3.datatype/reify-reader](https://cnuernber.github.io/tmdjs/tech.v3.datatype.html#var-reify-reader)
 creates a persistent-vector hash and equiv compatible object.
 
 
@@ -83,7 +83,7 @@ handlers in your middleware stack.
 cljs.user> (def ds (ds/->dataset {:a (range 100)
                                   :b (take 100 (cycle [:a :b :c]))
                                   :c (take 100 (cycle ["one" "two" "three"]))}))
-								  
+
 #'cljs.user/ds
 cljs.user> ds
 #dataset[unnamed [100 3]
@@ -168,14 +168,25 @@ advanced optimizations do not break the api.
 
 ## Chrome Heap Measurements.
 
-
-Be sure to include numbers in your measurements - 
+For a 2-column dataset of just time and temperature of random double data dataset is about
+10X smaller than a sequence of maps.  More columns or choosing different datatypes for the
+columns will change the results.
 
 
 ```clojure
-testapp.webapp> (def ignored (aset js/window "AAAATyped" (ds/->dataset (repeatedly 1000 #(hash-map :time (rand) :temp (rand))))))
+
+testapp.webapp> (def ignored
+                  (->> (repeatedly 10000 #(hash-map :time (rand) :temp (rand)))
+                       (ds/->>dataset)
+                       ;;When building a dataset we save data using dynamically resizing
+                       ;;backing stores.  Cloning crops the dataset to exactly the size
+                       ;;it needs
+                       (clone)
+                       (aset js/window "AAAMemTest-Dataset")))
 #'testapp.webapp/ignored
-testapp.webapp> (def ignored (aset js/window "AAAANumber" (vec (repeatedly 1000 #(hash-map :time (rand) :temp (rand))))))
+testapp.webapp> (def ignored (->> (repeatedly 10000 #(hash-map :time (rand) :temp (rand)))
+                                  (vec)
+                                  (aset js/window "AAAMemTest-Mapseq")))
 #'testapp.webapp/ignored
 ```
 
