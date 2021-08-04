@@ -97,6 +97,16 @@
            ((ds/replace-missing ds :all [:value 20]) :a)))))
 
 
+(deftest concat-missing-columns
+  (let [ds (ds/concat
+            (ds/->dataset {:a (range 10)
+                           :c (repeat 10 (dtype-dt/local-date))})
+            (ds/->dataset {:b (range 10)}))]
+    (is (= 20 (ds/row-count ds)))
+    (is (= 10 (dtype/ecount (ds/missing (ds :a)))))
+    (is (= 10 (dtype/ecount (ds/missing (ds :b)))))))
+
+
 (deftest row-hash-equiv
   (let [ds (ds/->dataset {:a (range 100)
                           :b (range 100)
@@ -120,5 +130,6 @@
                                      (Math/round)
                                      (/ 100.0))]))
                        (into {}))]
+    ;;these are taken directly from the jvm aggregation so the numbers have to be identical.
     (is (= {"MSFT" 24.74, "AMZN" 47.99, "IBM" 91.26, "GOOG" 415.87, "AAPL" 64.73}
            stock-agg))))

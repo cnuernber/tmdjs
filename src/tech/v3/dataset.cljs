@@ -386,8 +386,8 @@ cljs.user> (->> (ds/->dataset {:a (range 100)
 
 
 (defn concat
-  "All datasets must have the same column names.  This is a copying concatenation so the
-  result will be realized."
+  "This is a copying concatenation so the result will be realized.  Missing columns
+  will be filled in with missing values."
   [ds & args]
   (if-not (seq args)
     ds
@@ -396,25 +396,37 @@ cljs.user> (->> (ds/->dataset {:a (range 100)
                             (seq))]
       (if (== (count ds-list) 1)
         (first ds-list)
-        (let [colnames (column-names (first ds-list))
+        (let [colnames (->> (mapcat column-names ds-list)
+                            (distinct))
               n-rows (apply + (map row-count ds-list))
               col-dtypes (->> colnames
                               ;;force missing column errors right here.
-                              (mapv (fn [colname]
-                                      (reduce casting/widest-datatype
-                                              (map (comp dtype/elemwise-datatype
-                                                         #(column % colname))
-                                                   ds-list)))))]
+                              (map (fn [colname]
+                                     (->> ds-list
+                                          (map #(% colname))
+                                          (remove nil?)
+                                          (map dtype/elemwise-datatype)
+                                          (reduce (fn [lhs-dt rhs-dt]
+                                                    (if (= lhs-dt rhs-dt)
+                                                      lhs-dt
+                                                      (casting/widest-datatype
+                                                       lhs-dt rhs-dt))))))))]
           (->> (map (fn [colname coldtype]
                       (let [container (col-impl/make-container coldtype)
                             missing (js/Set.)]
                         (dtype/ensure-capacity! container n-rows)
                         (doseq [ds ds-list]
-                          (let [ds-col (column ds colname)
-                                offset (count container)]
-                            (dtype/iterate! #(.add missing (+ offset %))
-                                            (ds-proto/-missing ds-col))
-                            (dtype/add-all! container ds-col)))
+                          (let [offset (count container)]
+                            (if-let [ds-col (ds colname)]
+                              (do
+                                (dtype/iterate! #(.add missing (+ offset %))
+                                                (ds-proto/-missing ds-col))
+                                (dtype/add-all! container ds-col))
+                              (let [mv (col-impl/datatype->missing-value coldtype)]
+                                ;;they are all missing
+                                (dotimes [idx (row-count ds)]
+                                  (.add missing (+ offset idx))
+                                  (dtype/add! container mv))))))
                         #:tech.v3.dataset{:data container
                                           :missing missing
                                           :name colname}))
