@@ -91,7 +91,9 @@
   [col dst-dtype convert-fn]
   (let [data (dtype/make-list dst-dtype)]
     (dotimes [idx (count col)]
-      (.add data (convert-fn (or (col idx) 0))))
+      (.add data (if-let [colval (col idx)]
+                   (convert-fn colval)
+                   0)))
     (numeric-data->b64 data)))
 
 

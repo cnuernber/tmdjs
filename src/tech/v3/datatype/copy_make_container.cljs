@@ -7,10 +7,14 @@
   [dtype len-or-data]
   (let [data (if (number? len-or-data)
                nil
-               (if (and (dt-base/counted? len-or-data)
-                        (dt-base/indexed? len-or-data))
-                 len-or-data
-                 (vec len-or-data)))
+               (if-let [ag-data (dt-base/as-typed-array len-or-data)]
+                 ag-data
+                 (if-let [ag-data (dt-base/as-js-array len-or-data)]
+                   ag-data
+                   (if (and (dt-base/counted? len-or-data)
+                            (dt-base/indexed? len-or-data))
+                     len-or-data
+                     (vec len-or-data)))))
         dlen (if (number? len-or-data)
                len-or-data
                (count data))

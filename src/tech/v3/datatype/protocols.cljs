@@ -43,6 +43,10 @@
   (-elemwise-datatype [item] (-datatype item)))
 
 
+(defprotocol PShape
+  (-shape [item]))
+
+
 (extend-type array
   PElemwiseDatatype
   (-elemwise-datatype [item] :object)

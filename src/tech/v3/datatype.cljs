@@ -21,6 +21,11 @@
   (dt-base/ecount item))
 
 
+(defn shape
+  [item]
+  (dt-base/generalized-shape item))
+
+
 (defn clone
   "Here for compat with jvm system.  All of the datatype objects
   implement ICloneable so cljs.core/clone works fine."
@@ -206,6 +211,20 @@
   inserted items"
   [list buflen]
   (dt-proto/-ensure-capacity list buflen))
+
+
+(defn list-coalesce!
+  "Coalesce a possibly nested set of data into a single container that implements the
+  dtype list protocol.
+
+  Example:
+
+```clojure
+cljs.user> (dtype/list-coalesce! [[2 3 4][5 6 7]] (dtype/make-list :float32))
+#list[[:float32 6][2 3 4 5 6 7]
+```"
+  [data container]
+  (dt-base/list-coalesce! data container))
 
 
 (defn ->js-set

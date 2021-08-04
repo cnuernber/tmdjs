@@ -1,7 +1,8 @@
 (ns tech.v3.datatype.base
-  (:require [tech.v3.datatype.protocols :as dtype-proto]
+  (:require [tech.v3.datatype.protocols :as dt-proto]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.format-sequence :as fmt]
+            [tech.v3.datatype.argtypes :as argtypes]
             [goog.object :as gobject]
             [clojure.string :as s])
   (:refer-clojure :exclude [clone counted? indexed?]))
@@ -10,9 +11,14 @@
 (defn ecount
   [item]
   (if (nil? item)
-    0
+    nil
     ;;As count is a protocol in js, we have no reason to define our own
     (count item)))
+
+
+(defn shape
+  [item]
+  (if (nil? item) nil (dt-proto/-shape item)))
 
 
 (defn clone
@@ -25,26 +31,26 @@
   [item]
   (if (nil? item)
     :object
-    (dtype-proto/-elemwise-datatype item)))
+    (dt-proto/-elemwise-datatype item)))
 
 
 (defn datatype
   [item]
   (if (nil? item)
     :object
-    (dtype-proto/-datatype item)))
+    (dt-proto/-datatype item)))
 
 
 (defn as-typed-array
   [item]
-  (when (and item (dtype-proto/-convertible-to-typed-array? item))
-    (dtype-proto/->typed-array item)))
+  (when (and item (dt-proto/-convertible-to-typed-array? item))
+    (dt-proto/->typed-array item)))
 
 
 (defn as-js-array
   [item]
-  (when (and item (dtype-proto/-convertible-to-js-array? item))
-    (dtype-proto/->js-array item)))
+  (when (and item (dt-proto/-convertible-to-js-array? item))
+    (dt-proto/->js-array item)))
 
 
 (defn sub-buffer-copy
@@ -55,7 +61,7 @@
         len (or len maxlen)]
     (when-not (>= elen (+ off len))
       (throw (js/Error. (str "Offset " off " len " len " => item length " elen))))
-    (dtype-proto/-sub-buffer-copy item off len)))
+    (dt-proto/-sub-buffer-copy item off len)))
 
 
 (defn sub-buffer
@@ -65,7 +71,7 @@
         len (or len maxlen)]
     (when-not (>= elen (+ off len))
       (throw (js/Error. (str "Offset " off " len " len " => item length " elen))))
-    (dtype-proto/-sub-buffer item off len)))
+    (dt-proto/-sub-buffer item off len)))
 
 
 (defn counted?
@@ -94,8 +100,8 @@
 
 (defn as-agetable
   [data]
-  (when (and data (dtype-proto/-convertible-to-agetable? data))
-    (dtype-proto/->agetable data)))
+  (when (and data (dt-proto/-convertible-to-agetable? data))
+    (dt-proto/->agetable data)))
 
 
 (defn set-value!
@@ -108,7 +114,7 @@
              (not (<= (+ idx (count data)) (count item))))
     (throw (js/Error. (str "data length + idx " (+ (count data) idx)
                            " is out of range of item length ") (count item))))
-  (dtype-proto/-set-value! item idx data)
+  (dt-proto/-set-value! item idx data)
   item)
 
 
@@ -122,7 +128,7 @@
              (not (<= (+ idx (count data)) (count item))))
     (throw (js/Error. (str "data length + idx " (+ (count data) idx)
                            " is out of range of item length ") (count item))))
-  (dtype-proto/-set-constant! item idx elem-count data)
+  (dt-proto/-set-constant! item idx elem-count data)
   item)
 
 
@@ -271,3 +277,29 @@
     (if simple-print?
       (str "[" rdr-str "]")
       (str "#" typename "[[" dtype " " cnt "][" rdr-str "]"))))
+
+
+(defn list-coalesce!
+  "Coalesce data into a container that implements add! and add-all!.  Returns the container."
+  [data container]
+  (if (= :scalar (argtypes/argtype data))
+    (dt-proto/-add container data)
+    (if (= :scalar (argtypes/argtype (first data)))
+      (dt-proto/-add-all container data)
+      (iterate! #(list-coalesce! % container) data)))
+  container)
+
+
+(defn generalized-shape
+  [data]
+  (cond
+    (or (nil? data) (= :scalar (argtypes/argtype data)))
+    []
+    (satisfies? dt-proto/PShape data)
+    (dt-proto/-shape data)
+    :else
+    (loop [shp (transient [(count data)])
+           data (first data)]
+      (if (= :scalar (argtypes/argtype data))
+        (persistent! shp)
+        (recur (conj! shp (count data)) (first data))))))
