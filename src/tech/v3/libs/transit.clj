@@ -165,9 +165,9 @@
 
 
 (defn data->dataset
-  [{:keys [metadata columns] :as ds-data}]
+  [{:keys [columns] :as ds-data}]
   (errors/when-not-errorf
-   (and metadata columns)
+   (and (:metadata ds-data) columns)
    "Passed in data does not appear to have metadata or columns")
   (->> (:columns ds-data)
        (map
@@ -199,7 +199,7 @@
                                 :else
                                 (dtype/make-container dtype data))
                               :name (:name metadata)})))
-       (ds-impl/new-dataset (:metadata ds-data))))
+       (ds-impl/new-dataset {} (:metadata ds-data))))
 
 (def write-handlers {Dataset (t/write-handler "tech.v3.dataset" dataset->data)})
 (def read-handlers {"tech.v3.dataset" (t/read-handler data->dataset)})
