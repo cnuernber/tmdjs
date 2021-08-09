@@ -4,11 +4,13 @@
         techascent/tech.ml.dataset {:mvn/version "6.012"}
         tick/tick {:mvn/version "0.4.24-alpha"}
         com.cognitect/transit-clj {:mvn/version "1.0.324"}}
-
  :aliases
- {:cljs
+ {:dev
+  {:extra-deps {metosin/muuntaja {:mvn/version "0.6.8"}}}
+  :cljs
   {:extra-deps {thheller/shadow-cljs {:mvn/version "2.12.4"}
-                cider/cider-nrepl {:mvn/version "0.26.0"}}
+                cider/cider-nrepl {:mvn/version "0.26.0"}
+                cljs-ajax/cljs-ajax {:mvn/version "0.8.3"}}
    ;;resources has logback.xml which disables the annoying jboss logging
    :extra-paths ["test" "resources"]
    :main-opts ["-m" "shadow.cljs.devtools.cli"]}
@@ -19,10 +21,9 @@
    :exec-fn hf.depstar/jar
    :exec-args {:group-id "com.cnuernber"
                :artifact-id "tmdjs"
-               :version "1.000-beta-5"
+               :version "1.000-beta-6"
                :sync-pom true
                :jar "target/tmdjs.jar"}}
-
   ;;deploy to clojars
   :deploy
   {:replace-deps {slipset/deps-deploy {:mvn/version "0.1.5"}}
@@ -48,7 +49,8 @@
   {:extra-deps {codox-theme-rdash/codox-theme-rdash {:mvn/version "0.1.2"}
                 com.cnuernber/codox {:mvn/version "1.000"}
                 thheller/shadow-cljs {:mvn/version "2.12.4"}
-                cider/cider-nrepl {:mvn/version "0.26.0"}}
+                cider/cider-nrepl {:mvn/version "0.26.0"}
+                cljs-ajax/cljs-ajax {:mvn/version "0.8.3"}}
    :extra-paths ["test" "resources"]
    :exec-fn codox.main/-main
    :exec-args {:arg-paths [[:aliases :depstar :exec-args]]
@@ -60,6 +62,7 @@
                :output-path "docs"
                :source-uri "https://github.com/cnuernber/tmdjs/blob/master/{filepath}#L{line}"
                :namespaces [tech.v3.dataset
+                            tech.v3.libs.cljs-ajax
                             tech.v3.datatype
                             tech.v3.datatype.functional
                             tech.v3.datatype.argops]}}}}
