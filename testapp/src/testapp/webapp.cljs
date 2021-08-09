@@ -2,7 +2,7 @@
   (:require [goog.dom :as gdom]
             [reagent.dom]
             [reagent.ratom :refer [atom]]
-            [ajax.core :refer [GET POST]]
+            [tech.v3.libs.cljs-ajax :refer [GET POST]]
             [tech.v3.dataset :as ds]
             [tech.v3.datatype.functional :as dfn]))
 
@@ -11,18 +11,16 @@
 
 (defn merge-by-key
   [lhs rhs colname]
-  (let [seen (cljs.core/atom (transient #{}))]
-    (->> (concat lhs rhs)
-         (sort-by :time)
-         (dedupe))))
+  (->> (concat lhs rhs)
+       (sort-by :time)
+       (dedupe)))
 
 
 (defn home
   []
-  (GET "/data" {:handler #(let [ds (ds/data->dataset %)]
-                            (swap! app* assoc
-                                   :ds ds
-                                   :raw (mapv (partial into {}) (ds/rows ds))))})
+  (GET "/data" {:handler #(swap! app* assoc
+                                 :ds %
+                                 :raw (mapv (partial into {}) (ds/rows %)))})
   (fn []
     [:div.container
      [:h1 "Hello from TMDJS"]

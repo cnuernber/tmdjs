@@ -4,14 +4,13 @@
             [ring.util.response :as response]
             [ring.middleware.resource :refer [wrap-resource]]
             [ring.middleware.content-type :refer [wrap-content-type]]
-            ;;They dynamically load this file which breaks graal native
-            [muuntaja.middleware :refer [wrap-format]]
+            ;;automatic handling of transit->dataset conversion
+            [tech.v3.libs.muuntaja :refer [wrap-format]]
             [ring.middleware.cookies :refer [wrap-cookies]]
             [ring.middleware.gzip :refer [wrap-gzip]]
             [bidi.ring :as bidi-ring]
             [clojure.tools.logging :as log]
-            [tech.v3.dataset :as ds]
-            [tech.v3.libs.transit :as ds-t])
+            [tech.v3.dataset :as ds])
   (:gen-class))
 
 
@@ -44,14 +43,12 @@
                                                  :valid? (if (> (rand) 0.5)
                                                            true
                                                            false))))
-      (ds-t/dataset->data)
       (response/response)))
 
 
 (defn stocks-data
   [request]
   (-> (ds/->dataset "https://github.com/techascent/tech.ml.dataset/raw/master/test/data/stocks.csv" {:key-fn keyword})
-      (ds-t/dataset->data)
       (response/response)))
 
 
@@ -62,7 +59,6 @@
 (defn handler
   []
   (-> (bidi-ring/make-handler routes)
-      ;;Only get latest every 100 ms or so.
       (wrap-format)
       (wrap-cookies)
       (wrap-resource "public")
