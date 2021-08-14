@@ -42,3 +42,21 @@
   (-column-count [this] 0)
   PDataset
   (-is-dataset? [item] false))
+
+(extend-type array
+  PDataset
+  (-is-dataset? [item] false)
+  PColumn
+  (-is-column? [col] false))
+
+(extend-type boolean
+  PDataset
+  (-is-dataset? [item] false)
+  PColumn
+  (-is-column? [col] false))
+
+(extend-type number
+  PDataset
+  (-is-dataset? [item] false)
+  PColumn
+  (-is-column? [col] false))

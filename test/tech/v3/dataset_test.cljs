@@ -132,4 +132,11 @@
                        (into {}))]
     ;;these are taken directly from the jvm aggregation so the numbers have to be identical.
     (is (= {"MSFT" 24.74, "AMZN" 47.99, "IBM" 91.26, "GOOG" 415.87, "AAPL" 64.73}
-           stock-agg))))
+           stock-agg))
+    (let [stock-ds (ds/->dataset {:symbol (keys stock-agg)
+                                  :means (vals stock-agg)})
+          stock-groups (ds/group-by-column stocks :symbol)
+          ;;this was failing due to equiv being broken for datasets when not comparing
+          ;;to other datasets
+          final-ds (ds/column-map stock-ds :src-data stock-groups [:symbol])]
+      (is (= 5 (ds/row-count final-ds))))))

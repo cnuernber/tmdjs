@@ -224,7 +224,8 @@
 
   IEquiv
   (-equiv [this other]
-    (if (and (ds-proto/-is-dataset? other)
+    (if (and other
+             (ds-proto/-is-dataset? other)
              (= (ds-proto/-row-count this)
                 (ds-proto/-row-count other))
              (= (ds-proto/-column-count this)
