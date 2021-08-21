@@ -722,6 +722,7 @@ user> (ds/missing (*1 :c))
    (column-map dataset result-colname map-fn nil (column-names dataset))))
 
 
+
 (defn union-missing-sets
   "Union the missing sets of the columns"
   [col-seq]
@@ -732,6 +733,44 @@ user> (ds/missing (*1 :c))
   "Intersect the missing sets of the columns"
   [col-seq]
   (reduce dtype/set-and (map ds-proto/-missing col-seq)))
+
+
+(defn row-map
+  "Map a function across the rows of the dataset producing a new dataset
+  that is merged back into the original potentially replacing existing columns.
+  Options are passed into the [[->dataset]] function so you can control the resulting
+  column types by the usual dataset parsing options described there.
+
+  Examples:
+
+```clojure
+cljs.user> (def stocks (ds/transit-file->dataset \"test/data/stocks.transit-json\"))
+#'cljs.user/stocks
+cljs.user> (ds/head stocks)
+#dataset[https://github.com/techascent/tech.ml.dataset/raw/master/test/data/stocks.csv [5 3]
+| :symbol |      :date | :price |
+|---------|------------|-------:|
+|    MSFT | 2000-01-01 |  39.81 |
+|    MSFT | 2000-02-01 |  36.35 |
+|    MSFT | 2000-03-01 |  43.22 |
+|    MSFT | 2000-04-01 |  28.37 |
+|    MSFT | 2000-05-01 |  25.45 |]
+cljs.user> (ds/head (ds/row-map stocks (fn [row]
+                                    {:symbol (keyword (row :symbol))
+                                     :price2 (* (row :price)(row :price))})))
+#dataset[https://github.com/techascent/tech.ml.dataset/raw/master/test/data/stocks.csv [5 4]
+| :symbol |      :date | :price |       :price2 |
+|---------|------------|-------:|--------------:|
+|   :MSFT | 2000-01-01 |  39.81 | 1584.83610000 |
+|   :MSFT | 2000-02-01 |  36.35 | 1321.32250000 |
+|   :MSFT | 2000-03-01 |  43.22 | 1867.96840000 |
+|   :MSFT | 2000-04-01 |  28.37 |  804.85690000 |
+|   :MSFT | 2000-05-01 |  25.45 |  647.70250000 |]
+```"
+  [ds map-fn & [options]]
+  (merge ds (->> (rows ds)
+                 (dtype/emap map-fn :object)
+                 (->>dataset options))))
 
 
 (defn- numeric-data->b64
