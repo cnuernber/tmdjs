@@ -316,19 +316,24 @@ cljs.user> (->> (ds/->dataset {:a (range 100)
 
 
 (defn sort-by-column
-  "Sort the dataset by column colname"
-  [ds colname & [sort-op]]
+  "Sort the dataset by column colname.
+
+  Options:
+
+  * `:nan-strategy` - defaults to `:last` - for numeric columns where to place missing values.
+     Options are `:first`, `:last`, `:exception`."
+  [ds colname & [sort-op options]]
   (let [coldata (column ds colname)]
-    (select-rows ds (argops/argsort sort-op coldata))))
+    (select-rows ds (argops/argsort sort-op options coldata))))
 
 
 (defn sort-by
   "Sort dataset by keyfn.  Keyfn is passed each row as a map."
-  [ds keyfn & [comp]]
+  [ds keyfn & [comp options]]
   (let [ds-rows (rows ds)]
-    (select-rows ds (argops/argsort comp (dtype/reify-reader
-                                          (row-count ds)
-                                          #(keyfn (ds-rows %)))))))
+    (select-rows ds (argops/argsort comp options (dtype/reify-reader
+                                                  (row-count ds)
+                                                  #(keyfn (ds-rows %)))))))
 
 
 (defn group-by-column

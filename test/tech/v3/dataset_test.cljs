@@ -164,3 +164,15 @@
         ds (ds/remove-rows ds (dtype/set-and (ds/missing (ds :a))
                                              (ds/missing (ds :b))))]
     (is (= 8 (ds/row-count ds)))))
+
+
+(deftest sort-works-with-nan
+  (let [ds (ds/->dataset {:a [1 nil 2 nil nil 4]} )
+        ds-first (ds/sort-by-column ds :a nil {:nan-strategy :first})
+        ds-last (ds/sort-by-column ds :a nil {:nan-strategy :last})
+        nan-eq (fn [lhs rhs]
+                 (->> (map vector lhs rhs)
+                      (every? #(dfn/scalar-eq (% 0) (% 1)))))]
+    (is (nan-eq [##NaN ##NaN ##NaN 1 2 4] (ds-first :a)))
+    (is (nan-eq [1 2 4 ##NaN ##NaN ##NaN] (ds-last :a)))
+    (is (thrown? js/Error (ds/sort-by-column ds :a nil {:nan-strategy :exception})))))
