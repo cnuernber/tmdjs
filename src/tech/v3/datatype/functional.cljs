@@ -113,3 +113,15 @@ cljs.user> (dfn/descriptive-statistics [:min :max :mean :n-values] (range 10))
   [lhs rhs & [error-bar]]
   (cljs.core/< (double (distance lhs rhs))
                (double (cljs.core/or error-bar 0.001))))
+
+
+(defn scalar-eq
+  "NaN-aware eq"
+  [lhs rhs]
+  (let [l-nan? (js/isNaN lhs)
+        r-nan? (js/isNaN rhs)]
+    (cond
+      (and l-nan? r-nan?) true
+      (or l-nan? r-nan?) false
+      :else
+      (-equiv lhs rhs))))

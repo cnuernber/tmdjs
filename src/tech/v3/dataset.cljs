@@ -77,7 +77,7 @@ cljs.user> (-> (ds/->dataset {:a (range 100)
 
 
 (defn- parse-mapseq
-  [data options]
+  [options data]
   (let [{:keys [parser-fn parse-map*]} (options->parser-fn options)]
     (->> data
          (map-indexed
@@ -91,7 +91,7 @@ cljs.user> (-> (ds/->dataset {:a (range 100)
 
 (defn- parse-colmap
   "Much faster/easier pathway"
-  [data options]
+  [options data]
   (let [{:keys [parser-fn parse-map*]} (options->parser-fn options)]
     (doseq [[k v] data]
       (let [parser (parser-fn k)]
@@ -124,10 +124,10 @@ cljs.user> (->> (ds/->dataset {:a (range 100)
    (if (nil? data)
      (ds-impl/new-dataset options)
      (cond
-       (and (sequential? data) (map? (first data)))
-       (parse-mapseq data options)
        (map? data)
-       (parse-colmap data options)
+       (parse-colmap options data)
+       (sequential? data)
+       (parse-mapseq options data)
        :else
        (throw (js/Error. "Unrecognized value for ->dataset")))))
   ([data] (->dataset data nil))

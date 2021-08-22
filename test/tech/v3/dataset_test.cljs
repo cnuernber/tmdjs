@@ -140,3 +140,14 @@
           ;;to other datasets
           final-ds (ds/column-map stock-ds :src-data stock-groups [:symbol])]
       (is (= 5 (ds/row-count final-ds))))))
+
+
+(deftest row-map-edge-case
+  (let [ds (-> (ds/->dataset {:a (range 10)})
+               (ds/row-map (fn [row]
+                             (when (> (row :a) 4)
+                               {:b (+ (row :a) 2)}))))]
+    (is (every? dfn/scalar-eq
+                (map vector
+                     [##NaN ##NaN ##NaN ##NaN ##NaN 7 8 9 10 11]
+                     (vec (ds :b)))))))
