@@ -303,3 +303,9 @@
       (if (= :scalar (argtypes/argtype data))
         (persistent! shp)
         (recur (conj! shp (count data)) (first data))))))
+
+
+(extend-type cljs.core/PersistentVector
+  dt-proto/PSubBuffer
+  (-sub-buffer [item offset len]
+    (subvec item offset (+ offset len))))

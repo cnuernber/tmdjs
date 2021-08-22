@@ -151,3 +151,16 @@
                 (map vector
                      [##NaN ##NaN ##NaN ##NaN ##NaN 7 8 9 10 11]
                      (vec (ds :b)))))))
+
+
+(deftest vec-sub-buffer
+  (is (= [0 1 2 3]
+         (dtype/sub-buffer (vec (range 10)) 0 4))))
+
+
+(deftest remove-rows-missing
+  (let [ds (ds/->dataset {:a [nil 2 nil nil nil 6 nil 8 7 6]
+                          :b [2 nil nil nil 3 4 5 nil 8 9]})
+        ds (ds/remove-rows ds (dtype/set-and (ds/missing (ds :a))
+                                             (ds/missing (ds :b))))]
+    (is (= 8 (ds/row-count ds)))))

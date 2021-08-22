@@ -152,9 +152,10 @@ cljs.user> (->> (ds/->dataset {:a (range 100)
   "Return the missing set as a clojure set.  The underlying protocol returns
   missing sets as js sets as those have superior performance when using numbers."
   [ds-or-col]
-  ;;The base missing sets are js sets but interacting with js-sets in Clojure
-  ;;is for the birds.
-  (set (ds-proto/-missing ds-or-col)))
+  (when ds-or-col
+    ;;The base missing sets are js sets but interacting with js-sets in Clojure
+    ;;is for the birds.
+    (set (ds-proto/-missing ds-or-col))))
 
 
 (defn row-count
@@ -234,15 +235,23 @@ cljs.user> (->> (ds/->dataset {:a (range 100)
         newidxes (dtype/make-list :int32)]
     (dotimes [idx (row-count ds)]
       (when-not (.has sdata idx)
-        (dtype/add! idx newidxes)))
-    (select-rows ds rowidxs)))
+        (dtype/add! newidxes idx)))
+    (select-rows ds newidxes)))
 
 
 (defn select-columns
   "Select these column in this order.  This can be used both to select specific columns
-  and to set the order of columns."
+  and to set the order of columns.  Columns not found are errors"
   [ds colnames]
   (ds-proto/-select-columns ds colnames))
+
+
+(defn soft-select-columns
+  "Select these columns in this order.  Columns not found are quietly ignored.  To get errors
+  for missing columns see [[select-columns]]."
+  [ds colnames]
+  (let [existing (set (column-names ds))]
+    (ds-proto/-select-columns ds (cljs.core/filter existing colnames))))
 
 
 (defn remove-columns
