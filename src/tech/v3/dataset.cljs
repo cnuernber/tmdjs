@@ -316,12 +316,17 @@ cljs.user> (->> (ds/->dataset {:a (range 100)
 
 
 (defn sort-by-column
-  "Sort the dataset by column colname.
+  "Sort the dataset by column colname.  For sort options and the interaction between
+  sort-fn and the options see [[tech.v3.datatype.argops/argsort]].
+
+  * `sort-op` - a boolean binary predicate comparison operation such as < or >.
 
   Options:
 
   * `:nan-strategy` - defaults to `:last` - for numeric columns where to place missing values.
-     Options are `:first`, `:last`, `:exception`."
+     Options are `:first`, `:last`, `:exception`.
+  * `:comparator` - pass in a custom comparator - a function returning -1,0, or 1.  If no
+     sort-op is passed in this defaults to `compare`."
   [ds colname & [sort-op options]]
   (let [coldata (column ds colname)]
     (select-rows ds (argops/argsort sort-op options coldata))))

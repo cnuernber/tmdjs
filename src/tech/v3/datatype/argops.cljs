@@ -8,10 +8,44 @@
 
 
 (defn argsort
-  "Return an array of indexes that order the provided data by compare-fn"
+  "Return an array of indexes that order the provided data by compare-fn.  compare-fn must
+  be a boolean function such as < or >.  You can use a full custom comparator returning
+  -1,0 or 1 by using the `:comparator` option.
+
+  * `compare-fn` - Boolean binary predicate such as < or >.
+
+  Options:
+
+  * `:nan-strategy` - defaults to `:last` - if the data has a numeric elemwise-datatype, a
+  nan-aware comparsing will be used that will place nan data first, last, or throw an exception
+  as specified by the three possible options - `:first`, `:last`, and `:exception`.
+  * `:comparator` - comparator to use.  This overrides compare-fn and takes two arguments
+  but returns a number.
+
+
+  Examples:
+
+```clojure
+cljs.user> ;;Persistent vectors do not indicate datatype so nan-aware comparison is disabled.
+cljs.user> (argops/argsort [##NaN 1 2 3 ##NaN])
+#typed-buffer[[:int32 5][0 1 2 3 4]
+cljs.user> ;;But with a container that indicates datatype nan will be handled
+cljs.user> (argops/argsort (dtype/make-container :float32 [##NaN 1 2 3 ##NaN]))
+ #typed-buffer[[:int32 5][1 2 3 4 0]
+cljs.user> ;;example setting nan strategy and using custom comparator.
+cljs.user> (argops/argsort nil  ;;no compare fn
+                           {:nan-strategy :first
+                            :comparator #(compare %2 %1)}
+                           (dtype/make-container :float32 [##NaN 1 2 3 ##NaN]))
+#typed-buffer[[:int32 5][0 4 3 2 1]
+```"
   ([compare-fn options data]
-   (let [comp (if compare-fn
+   (let [comp (cond
+                compare-fn
                 (comparator compare-fn)
+                (:comparator options)
+                (:comparator options)
+                :else
                 compare)
          data (dt-base/ensure-indexable data)
          n-data (count data)
