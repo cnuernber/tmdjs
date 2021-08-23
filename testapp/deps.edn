@@ -1,5 +1,5 @@
 {:paths ["src" "resources"]
- :deps {com.cnuernber/tmdjs {:mvn/version "1.000-beta-15-SNAPSHOT"}
+ :deps {com.cnuernber/tmdjs {:mvn/version "1.000-beta-15"}
         http-kit/http-kit {:mvn/version "2.5.3"}
         hiccup/hiccup {:mvn/version"1.0.5"}
         bidi/bidi {:mvn/version "2.1.6"}
