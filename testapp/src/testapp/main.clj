@@ -5,12 +5,14 @@
             [ring.middleware.resource :refer [wrap-resource]]
             [ring.middleware.content-type :refer [wrap-content-type]]
             ;;automatic handling of transit->dataset conversion
-            [tech.v3.libs.muuntaja :refer [wrap-format]]
+            [tech.v3.libs.muuntaja :refer [wrap-format-java-time]]
             [ring.middleware.cookies :refer [wrap-cookies]]
             [ring.middleware.gzip :refer [wrap-gzip]]
             [bidi.ring :as bidi-ring]
             [clojure.tools.logging :as log]
-            [tech.v3.dataset :as ds])
+            [tech.v3.dataset :as ds]
+            [tech.v3.libs.transit :as tech-transit])
+  (:import [java.time LocalDate Instant])
   (:gen-class))
 
 
@@ -46,6 +48,12 @@
       (response/response)))
 
 
+(defn datetest
+  [request]
+  (response/response {:local-date (LocalDate/now)
+                      :instant (Instant/now)}))
+
+
 (defn stocks-data
   [request]
   (-> (ds/->dataset "https://github.com/techascent/tech.ml.dataset/raw/master/test/data/stocks.csv" {:key-fn keyword})
@@ -54,12 +62,14 @@
 
 (def routes ["/" {:get [["data" #'generate-data]
                         ["stocks" #'stocks-data]
+                        ["datetest" #'datetest]
                         [true #'home-page]]}])
 
 (defn handler
   []
   (-> (bidi-ring/make-handler routes)
-      (wrap-format)
+      (wrap-format-java-time {:write-handlers tech-transit/java-time-write-handlers
+                              :read-handlers tech-transit/java-time-read-handlers})
       (wrap-cookies)
       (wrap-resource "public")
       (wrap-content-type)

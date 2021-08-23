@@ -2,9 +2,10 @@
   (:require [goog.dom :as gdom]
             [reagent.dom]
             [reagent.ratom :refer [atom]]
-            [tech.v3.libs.cljs-ajax :refer [GET POST]]
+            [tech.v3.libs.cljs-ajax :refer [GET POST] :as tech-cljs-ajax]
             [tech.v3.dataset :as ds]
             [tech.v3.datatype.functional :as dfn]))
+
 
 (defonce app* (atom {}))
 
@@ -71,4 +72,6 @@
 (defn init
   "Entrypoint into the application."
   []
+  (tech-cljs-ajax/add-java-time-handlers!)
+
   (render))

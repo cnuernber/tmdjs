@@ -15,7 +15,8 @@
   (:import [tech.v3.dataset.impl.dataset Dataset]
            [tech.v3.dataset.impl.column Column]
            [java.nio ByteBuffer ByteOrder]
-           [java.util Base64 HashMap]))
+           [java.util Base64 HashMap]
+           [java.time LocalDate Instant]))
 
 (set! *warn-on-reflection* true)
 
@@ -203,6 +204,15 @@
 
 (def write-handlers {Dataset (t/write-handler "tech.v3.dataset" dataset->data)})
 (def read-handlers {"tech.v3.dataset" (t/read-handler data->dataset)})
+
+(def java-time-write-handlers
+  {LocalDate (t/write-handler "java.time.LocalDate" dtype-dt/local-date->days-since-epoch)
+   Instant (t/write-handler "java.time.Instant" dtype-dt/instant->milliseconds-since-epoch)})
+
+(def java-time-read-handlers
+  {"java.time.LocalDate" dtype-dt/days-since-epoch->local-date
+   "java.time.Instant" dtype-dt/milliseconds-since-epoch->instant})
+
 
 (defn dataset->transit
   "Convert a dataset into transit"

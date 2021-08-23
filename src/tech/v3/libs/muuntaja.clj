@@ -39,3 +39,11 @@
   * `:read-handlers` - transit handler-map of extra handlers to use when reading data."
   [handler & [options]]
   (muuntaja-middle/wrap-format handler (muuntaja options)))
+
+
+(defn wrap-format-java-time
+  "Wrap-format support datasets and scalar java.time.LocalDate and java.time.Instant objects."
+  [handler & [options]]
+  (wrap-format handler (assoc options
+                              :write-handlers tech-transit/java-time-write-handlers
+                              :read-handlers tech-transit/java-time-read-handlers)))
