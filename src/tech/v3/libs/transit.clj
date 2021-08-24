@@ -210,8 +210,8 @@
    Instant (t/write-handler "java.time.Instant" dtype-dt/instant->milliseconds-since-epoch)})
 
 (def java-time-read-handlers
-  {"java.time.LocalDate" dtype-dt/days-since-epoch->local-date
-   "java.time.Instant" dtype-dt/milliseconds-since-epoch->instant})
+  {"java.time.LocalDate" (t/read-handler dtype-dt/days-since-epoch->local-date)
+   "java.time.Instant" (t/read-handler dtype-dt/milliseconds-since-epoch->instant)})
 
 
 (defn dataset->transit
