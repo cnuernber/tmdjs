@@ -65,7 +65,8 @@
 
   ISeqable
   (-seq [coll]
-    (if (zero? cnt) nil (map #(nth coll %) (range cnt))))
+    (when-not (zero? cnt)
+      (map #(nth coll %) (range cnt))))
 
   ICounted
   (-count [coll] cnt)

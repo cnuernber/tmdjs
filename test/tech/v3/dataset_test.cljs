@@ -187,3 +187,9 @@
         desc (ds/sort-by-column ds :a nil {:comparator #(compare %2 %1)})]
     (is (nan-eq [1 2 4 ##NaN ##NaN ##NaN] (asc :a)))
     (is (nan-eq [4 2 1 ##NaN ##NaN ##NaN] (desc :a)))))
+
+
+(deftest completely-filtered-tables-fail-print
+  (let [ds (-> (ds/->dataset {:a (range 10)})
+               (ds/filter-column :a #(> % 10)))]
+    (is (not (nil? (pr-str ds))))))

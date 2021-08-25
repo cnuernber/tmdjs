@@ -367,7 +367,9 @@
     (-write writer (dt-base/reader->str rdr "typed-array")))
   ISequential
   ISeqable
-  (-seq [array] (map byte->boolean buf))
+  (-seq [array]
+    (when-not (zero? (count buf))
+      (map byte->boolean buf)))
   ISeq
   (-first [array] (byte->boolean (nth buf 0)))
   (-rest  [array] (dt-base/sub-buffer array 1 (dec (count buf))))

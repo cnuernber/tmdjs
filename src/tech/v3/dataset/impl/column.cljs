@@ -83,7 +83,9 @@
         (nth buf n))))
   ISeqable
   (-seq [this]
-    (map #(nth this %) (range (count this))))
+    (let [ec (count this)]
+      (when-not (== 0 ec)
+        (map #(nth this %) (range ec)))))
   IWithMeta
   (-with-meta [coll new-meta]
     (if (identical? new-meta metadata)

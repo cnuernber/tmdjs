@@ -177,7 +177,9 @@
   (-name [this] (:name metadata))
 
   ISeqable
-  (-seq [this] (map #(MapEntry. (name %) % nil) col-ary))
+  (-seq [this]
+    (when-not (zero? (count col-ary))
+      (map #(MapEntry. (name %) % nil) col-ary)))
 
   ISeq
   (-first [this] (first col-ary))

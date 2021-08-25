@@ -351,6 +351,8 @@ cljs.user> (dtype/list-coalesce! [[2 3 4][5 6 7]] (dtype/make-list :float32))
         (apply map map-fn args)
         (reify
           ISeqable
-          (-seq [r] (apply map map-fn args))
+          (-seq [r]
+            (when (every? seq args)
+              (apply map map-fn args)))
           dt-proto/PElemwiseDatatype
           (-elemwise-datatype [this] ret-dtype))))))
