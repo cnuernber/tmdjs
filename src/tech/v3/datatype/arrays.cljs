@@ -99,6 +99,19 @@
       false)))
 
 
+(defn nth-impl
+  [n n-elems def-val get-fn container]
+  (let [orig-n n
+        n (if (< n 0) (+ n-elems n) n)]
+    (if (and (>= n 0)
+             (< n n-elems))
+      (get-fn container n)
+      (if (= def-val ::exception)
+        (throw (js/Error. (str "Index \"" orig-n "\" out of range ["
+                               (- n-elems) " " (dec n-elems) "]")))
+        def-val))))
+
+
 (deftype AgetIter [data n-elems ^:unsynchronized-mutable i]
   Object
   (hasNext [this]
@@ -196,11 +209,9 @@
       IIndexed
       (-nth
         ([array n]
-         (aget array n))
+         (nth-impl n (.-length array) ::exception aget array))
         ([array n not-found]
-         (if (< n (count array))
-           (aget array n)
-           not-found)))
+         (nth-impl n (.-length array) not-found aget array)))
       ICounted
       (-count [array] (.-length array))
       IReduce
@@ -375,17 +386,12 @@
   (-rest  [array] (dt-base/sub-buffer array 1 (dec (count buf))))
   IFn
   (-invoke [array n]
-    (let [n (if (< n 0) (+ (count array) n) n)]
-      (byte->boolean (nth buf n))))
+    (nth-impl n (count array) nil #(byte->boolean (nth %1 %2)) array))
   IIndexed
   (-nth [array n]
-    (let [n (if (< n 0) (+ (count array) n) n)]
-      (byte->boolean (nth buf n))))
+    (nth-impl n (count array) ::exception #(byte->boolean (nth %1 %2)) array))
   (-nth [array n not-found]
-    (let [n (if (< n 0) (+ (count array) n) n)]
-      (if (< n (count buf))
-        (byte->boolean (nth buf n))
-        not-found))))
+    (nth-impl n (count array) not-found #(byte->boolean (nth %1 %2)) array)))
 
 
 (defn make-boolean-array
@@ -444,17 +450,12 @@
   (-rest  [array] (dt-proto/-sub-buffer buf 1 (dec (count buf))))
   IFn
   (-invoke [array n]
-    (let [n (if (< n 0) (+ (count array) n) n)]
-      (nth buf n)))
+    (nth-impl n (count array) nil nth buf))
   IIndexed
   (-nth [array n]
-    (let [n (if (< n 0) (+ (count array) n) n)]
-      (nth buf n)))
+    (nth-impl n (count array) ::exception nth buf))
   (-nth [array n not-found]
-    (let [n (if (< n 0) (+ (count array) n) n)]
-      (if (< n (count buf))
-        (nth buf n)
-        not-found)))
+    (nth-impl n (count array) not-found nth buf))
   ISequential
   IHash
   (-hash [o]

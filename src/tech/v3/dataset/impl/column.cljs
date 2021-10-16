@@ -71,16 +71,19 @@
   (-invoke [this n] (nth this n))
   IIndexed
   (-nth [this n]
-    (let [n (if (< n 0) (+ (count buf) n) n)]
-      (if (.has missing n)
-        (if numeric? ##NaN nil)
-        (nth buf n))))
+    (dt-arrays/nth-impl n (count buf) ::dt-arrays/exception
+                        (fn [buf n]
+                          (if (.has missing n)
+                            (if numeric? ##NaN nil)
+                            (nth buf n)))
+                        buf))
   (-nth [this n not-found]
-    (let [n-elems (count buf)
-          n (if (< n 0) (+ n-elems n) n)]
-      (if (or (>= n n-elems) (.has missing n))
-        not-found
-        (nth buf n))))
+    (dt-arrays/nth-impl n (count buf) not-found
+                        (fn [buf n]
+                          (if (.has missing n)
+                            (if numeric? ##NaN nil)
+                            (nth buf n)))
+                        buf))
   ISeqable
   (-seq [this]
     (let [ec (count this)]

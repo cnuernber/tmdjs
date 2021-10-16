@@ -44,14 +44,11 @@
       (nth buf n)))
   IIndexed
   (-nth [array n]
-    (let [n (if (< n 0) (+ (count array) n) n)]
-      (nth buf n)))
+    (dt-arrays/nth-impl n (count array) ::dt-arrays/exception
+                        nth buf))
   (-nth [array n not-found]
-    (let [n-ary (count array)
-          n (if (< n 0) (+ (count array) n) n)]
-      (if (< n n-ary)
-        (nth buf n)
-        not-found)))
+    (dt-arrays/nth-impl n (count array) not-found
+                        nth buf))
   IHash
   (-hash [o]
     (when-not hashcode

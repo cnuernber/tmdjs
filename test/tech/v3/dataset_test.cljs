@@ -6,6 +6,28 @@
             [tech.v3.datatype.datetime :as dtype-dt]))
 
 
+(deftest nth-neg-indexes
+  (let [data (dtype/make-container :int32 (range 10))]
+    (is (thrown? js/Error (nth data 10)))
+    (is (= :a (nth data 10 :a)))
+    (is (thrown? js/Error (nth data -11)))
+    (is (= :a (nth data -11 :a)))
+    (is (= 0 (nth data -10 :a))))
+  (let [data (dtype/make-list :int32 10)]
+    (dotimes [idx 10] (dtype/add! data idx))
+    (is (thrown? js/Error (nth data 10)))
+    (is (= :a (nth data 10 :a)))
+    (is (thrown? js/Error (nth data -11)))
+    (is (= :a (nth data -11 :a)))
+    (is (= 0 (nth data -10 :a))))
+  (let [data ((ds/->dataset {:a (range 10)}) :a)]
+    (is (thrown? js/Error (nth data 10)))
+    (is (= :a (nth data 10 :a)))
+    (is (thrown? js/Error (nth data -11)))
+    (is (= :a (nth data -11 :a)))
+    (is (= 0 (nth data -10 :a)))))
+
+
 (deftest base-mapseq-test
   (let [ds (ds/->dataset [{:a 1 :b 2} {:a 1} {:b 2}])]
     (is (= #{1 2} (ds/missing ds))))

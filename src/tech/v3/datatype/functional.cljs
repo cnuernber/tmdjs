@@ -125,3 +125,24 @@ cljs.user> (dfn/descriptive-statistics [:min :max :mean :n-values] (range 10))
       (or l-nan? r-nan?) false
       :else
       (-equiv lhs rhs))))
+
+
+(defn shift
+  "Shift by n and fill in with the first element for n>0 or last element for n<0.
+
+  Examples:
+
+```clojure
+user> (dfn/shift (range 10) 2)
+[0 0 0 1 2 3 4 5 6 7]
+user> (dfn/shift (range 10) -2)
+[2 3 4 5 6 7 8 9 9 9]
+```"
+  [rdr n]
+  (let [n-elems (count rdr)
+        max-idx (dec n-elems)
+        n (long n)]
+    (dtype/reify-reader (dtype/elemwise-datatype rdr)
+                        n-elems
+                        (fn [idx]
+                          (nth rdr (max 0 (min max-idx (- idx n))))))))
