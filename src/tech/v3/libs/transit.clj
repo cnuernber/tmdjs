@@ -10,7 +10,7 @@
             [tech.v3.datatype.packing :as packing]
             [tech.v3.datatype.datetime :as dtype-dt]
             [tech.v3.datatype.bitmap :as bitmap]
-            [primitive-math :as pmath]
+            [com.github.ztellman.primitive-math :as pmath]
             [cognitect.transit :as t])
   (:import [tech.v3.dataset.impl.dataset Dataset]
            [tech.v3.dataset.impl.column Column]
