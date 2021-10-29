@@ -54,37 +54,24 @@ cljs.user> (argops/argsort nil  ;;no compare fn
          nan-strategy (get options :nan-strategy :last)]
      ;;agetable is a major optimization for sorting.  element access time means a lot
      ;;for a large nlogn op.
-     (if-let [data (dt-base/as-agetable data)]
-       (let [sort-fn (if (casting/numeric-type? (dt-base/elemwise-datatype data))
-                       (fn [lhs-idx rhs-idx]
-                         (let [lhs (aget data lhs-idx)
-                               rhs (aget data rhs-idx)
-                               lhs-nan? (js/isNaN lhs)
-                               rhs-nan? (js/isNaN rhs)]
-                           (if (or lhs-nan? rhs-nan?)
-                             (condp = nan-strategy
-                               :exception
-                               (throw (js/Error "NaN detected"))
-                               :last  (if lhs-nan? 1 -1)
-                               :first (if lhs-nan? -1 1))
-                             (comp lhs rhs))))
-                       #(comp (aget data %1) (aget data %2)))]
-         (.sort idx-ary sort-fn))
-       (let [sort-fn (if (casting/numeric-type? (dt-base/elemwise-datatype data))
-                       (fn [lhs-idx rhs-idx]
-                         (let [lhs (nth data lhs-idx)
-                               rhs (nth data rhs-idx)
-                               lhs-nan? (js/isNaN lhs)
-                               rhs-nan? (js/isNaN rhs)]
-                           (if (or lhs-nan? rhs-nan?)
-                             (condp = nan-strategy
-                               :exception
-                               (throw (js/Error "NaN detected"))
-                               :last  (if lhs-nan? 1 -1)
-                               :first (if lhs-nan? -1 1 ))
-                             (comp lhs rhs))))
-                       #(comp (nth data %1) (nth data %2)))]
-         (.sort idx-ary sort-fn)))
+     (let [aget-data (dt-base/as-agetable data)
+           get-fn (if aget-data aget nth)
+           missing? (if (casting/numeric-type? (dt-base/elemwise-datatype data))
+                      js/isNaN
+                      nil?)
+           sort-fn (fn [lhs-idx rhs-idx]
+                     (let [lhs (get-fn data lhs-idx)
+                           rhs (get-fn data rhs-idx)
+                           lhs-nan? (missing? lhs)
+                           rhs-nan? (missing? rhs)]
+                       (if (or lhs-nan? rhs-nan?)
+                         (condp = nan-strategy
+                           :exception
+                           (throw (js/Error "NaN detected"))
+                           :last  (if lhs-nan? 1 -1)
+                           :first (if lhs-nan? -1 1))
+                         (comp lhs rhs))))]
+       (.sort idx-ary sort-fn))
      indexes))
   ([compare-fn data]
    (argsort compare-fn nil data))

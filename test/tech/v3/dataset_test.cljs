@@ -219,3 +219,24 @@
 
 (deftest ds-concat-nil-seq
   (is (nil? (apply ds/concat nil))))
+
+
+(deftest sorting-objects
+  (let [ds (ds/->dataset {:a [nil nil 1.0 2.0]
+                          :b ["hey" "you" nil nil]})]
+    (is (= ["hey" "you" nil nil]
+           (->> (ds/sort-by-column ds :b nil {:nan-strategy :last})
+                :b
+                (vec))))
+    (is (= [nil nil "hey" "you"]
+           (->> (ds/sort-by-column ds :b nil {:nan-strategy :first})
+                :b
+                (vec))))
+    (is (nan-eq [1 2 ##NaN ##NaN]
+                (->> (ds/sort-by-column ds :a nil {:nan-strategy :last})
+                     :a
+                     (vec))))
+    (is (nan-eq [##NaN ##NaN 1 2]
+                (->> (ds/sort-by-column ds :a nil {:nan-strategy :first})
+                     :a
+                     (vec))))))
