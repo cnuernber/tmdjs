@@ -407,50 +407,51 @@ cljs.user> (->> (ds/->dataset {:a (range 100)
 (defn concat
   "This is a copying concatenation so the result will be realized.  Missing columns
   will be filled in with missing values."
-  [ds & args]
-  (if-not (seq args)
-    ds
-    (when-let [ds-list (->> (cljs.core/concat [ds] args)
-                            (remove #(== 0 (row-count %)))
-                            (seq))]
-      (if (== (count ds-list) 1)
-        (first ds-list)
-        (let [colnames (->> (mapcat column-names ds-list)
-                            (distinct))
-              n-rows (apply + (map row-count ds-list))
-              col-dtypes (->> colnames
-                              ;;force missing column errors right here.
-                              (map (fn [colname]
-                                     (->> ds-list
-                                          (map #(% colname))
-                                          (remove nil?)
-                                          (map dtype/elemwise-datatype)
-                                          (reduce (fn [lhs-dt rhs-dt]
-                                                    (if (= lhs-dt rhs-dt)
-                                                      lhs-dt
-                                                      (casting/widest-datatype
-                                                       lhs-dt rhs-dt))))))))]
-          (->> (map (fn [colname coldtype]
-                      (let [container (col-impl/make-container coldtype)
-                            missing (js/Set.)]
-                        (dtype/ensure-capacity! container n-rows)
-                        (doseq [ds ds-list]
-                          (let [offset (count container)]
-                            (if-let [ds-col (ds colname)]
-                              (do
-                                (dtype/iterate! #(.add missing (+ offset %))
-                                                (ds-proto/-missing ds-col))
-                                (dtype/add-all! container ds-col))
-                              (let [mv (col-impl/datatype->missing-value coldtype)]
-                                ;;they are all missing
-                                (dotimes [idx (row-count ds)]
-                                  (.add missing (+ offset idx))
-                                  (dtype/add! container mv))))))
-                        #:tech.v3.dataset{:data container
-                                          :missing missing
-                                          :name colname}))
-                    colnames col-dtypes)
-               (ds-impl/new-dataset (meta ds))))))))
+  ([ds & args]
+   (if-not (seq args)
+     ds
+     (when-let [ds-list (->> (cljs.core/concat [ds] args)
+                             (remove #(== 0 (row-count %)))
+                             (seq))]
+       (if (== (count ds-list) 1)
+         (first ds-list)
+         (let [colnames (->> (mapcat column-names ds-list)
+                             (distinct))
+               n-rows (apply + (map row-count ds-list))
+               col-dtypes (->> colnames
+                               ;;force missing column errors right here.
+                               (map (fn [colname]
+                                      (->> ds-list
+                                           (map #(% colname))
+                                           (remove nil?)
+                                           (map dtype/elemwise-datatype)
+                                           (reduce (fn [lhs-dt rhs-dt]
+                                                     (if (= lhs-dt rhs-dt)
+                                                       lhs-dt
+                                                       (casting/widest-datatype
+                                                        lhs-dt rhs-dt))))))))]
+           (->> (map (fn [colname coldtype]
+                       (let [container (col-impl/make-container coldtype)
+                             missing (js/Set.)]
+                         (dtype/ensure-capacity! container n-rows)
+                         (doseq [ds ds-list]
+                           (let [offset (count container)]
+                             (if-let [ds-col (ds colname)]
+                               (do
+                                 (dtype/iterate! #(.add missing (+ offset %))
+                                                 (ds-proto/-missing ds-col))
+                                 (dtype/add-all! container ds-col))
+                               (let [mv (col-impl/datatype->missing-value coldtype)]
+                                 ;;they are all missing
+                                 (dotimes [idx (row-count ds)]
+                                   (.add missing (+ offset idx))
+                                   (dtype/add! container mv))))))
+                         #:tech.v3.dataset{:data container
+                                           :missing missing
+                                           :name colname}))
+                     colnames col-dtypes)
+                (ds-impl/new-dataset (meta ds))))))))
+  ([] nil))
 
 
 (defn merge-by-column

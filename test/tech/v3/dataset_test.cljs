@@ -215,3 +215,7 @@
   (let [ds (-> (ds/->dataset {:a (range 10)})
                (ds/filter-column :a #(> % 10)))]
     (is (not (nil? (pr-str ds))))))
+
+
+(deftest ds-concat-nil-seq
+  (is (nil? (apply ds/concat nil))))
