@@ -54,11 +54,12 @@ cljs.user> (argops/argsort nil  ;;no compare fn
          nan-strategy (get options :nan-strategy :last)]
      ;;agetable is a major optimization for sorting.  element access time means a lot
      ;;for a large nlogn op.
-     (let [aget-data (dt-base/as-agetable data)
-           get-fn (if aget-data aget nth)
-           missing? (if (casting/numeric-type? (dt-base/elemwise-datatype data))
+     (let [missing? (if (casting/numeric-type? (dt-base/elemwise-datatype data))
                       js/isNaN
                       nil?)
+           [data get-fn] (if-let [aget-data (dt-base/as-agetable data)]
+                           [aget-data aget]
+                           [data nth])
            sort-fn (fn [lhs-idx rhs-idx]
                      (let [lhs (get-fn data lhs-idx)
                            rhs (get-fn data rhs-idx)
