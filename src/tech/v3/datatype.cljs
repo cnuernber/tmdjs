@@ -11,7 +11,7 @@
             [tech.v3.datatype.bitmap :as bitmap]
             [tech.v3.datatype.reader-vec :as rvec]
             [clojure.string :as s])
-  (:refer-clojure :exclude [clone counted? indexed?]))
+  (:refer-clojure :exclude [clone counted? indexed? reverse]))
 
 
 (defn ecount
@@ -316,6 +316,27 @@ cljs.user> (dtype/list-coalesce! [[2 3 4][5 6 7]] (dtype/make-list :float32))
    (rvec/reader-vec n-elems dtype idx->val-fn))
   ([n-elems idx->val-fn]
    (reify-reader :object n-elems idx->val-fn)))
+
+
+(defn reverse
+  [item]
+  (cond
+    (empty? item) item
+    (dt-base/integer-range? item)
+    (let [ec (ecount item)
+          start (aget item "start")
+          step (aget item "step")
+          end (+ start (* step ec))]
+      (range (- end step) (- start step) (- step)))
+    (dt-base/indexed? item)
+    (let [ec (ecount item)
+          dec-ec (dec ec)]
+      (reify-reader (elemwise-datatype item) ec
+                    (if-let [aget-item (dt-base/as-agetable item)]
+                      #(aget aget-item (- dec-ec %))
+                      #(nth item (- dec-ec %)))))
+    :else
+    (cljs.core/reverse item)))
 
 
 (defn emap

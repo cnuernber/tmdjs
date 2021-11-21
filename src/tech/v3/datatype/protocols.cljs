@@ -34,7 +34,7 @@
 
 (extend-protocol PElemwiseDatatype
   object
-  (-elemwise-datatype [item] (-datatype item))
+  (-elemwise-datatype [item] :object)
   string
   (-elemwise-datatype [item] (-datatype item))
   boolean

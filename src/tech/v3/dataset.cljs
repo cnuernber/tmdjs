@@ -239,6 +239,26 @@ cljs.user> (->> (ds/->dataset {:a (range 100)
     (select-rows ds newidxes)))
 
 
+(defn remove-missing
+  "Remove missing rows from a dataset or column"
+  [ds]
+  (remove-rows ds (missing ds)))
+
+
+(defn select-missing
+  "Select the missing rows from a dataset or a column"
+  [ds]
+  (select-rows ds (missing ds)))
+
+
+(defn reverse-rows
+  "Reverse the order of the rows of a dataset or a column"
+  [ds]
+  (if (empty? ds)
+    ds
+    (select-rows ds (dtype/reverse (range (row-count ds))))))
+
+
 (defn select-columns
   "Select these column in this order.  This can be used both to select specific columns
   and to set the order of columns.  Columns not found are errors"
