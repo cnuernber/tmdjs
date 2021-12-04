@@ -7,3 +7,5 @@ target
 *.transit-json.gz
 pom.xml
 *.pom.asc
+.clj-kondo
+.lsp
