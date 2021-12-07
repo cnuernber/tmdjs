@@ -18,26 +18,26 @@
                         ^:unsynchronized-mutable hashcode
                         metadata]
   ICounted
-  (-count [this] ptr)
+  (-count [_this] ptr)
   ICloneable
-  (-clone [this] (make-primitive-list
-                  (-> (dt-proto/-sub-buffer buf 0 ptr)
-                      (clone))
-                  dtype ptr))
+  (-clone [_this] (make-primitive-list
+                   (-> (dt-proto/-sub-buffer buf 0 ptr)
+                       (clone))
+                   dtype ptr))
   IMeta
-  (-meta [this] metadata)
+  (-meta [_this] metadata)
   IWithMeta
-  (-with-meta [this new-meta]
+  (-with-meta [_this new-meta]
     (make-primitive-list buf dtype ptr new-meta))
   IPrintWithWriter
-  (-pr-writer [rdr writer opts]
+  (-pr-writer [rdr writer _opts]
     (-write writer (dt-base/reader->str rdr "list")))
   ISequential
   ISeqable
-  (-seq [array] (array-seq (dt-proto/-sub-buffer buf 0 ptr)))
+  (-seq [_array] (array-seq (dt-proto/-sub-buffer buf 0 ptr)))
   ISeq
-  (-first [array] (nth buf 0))
-  (-rest  [array] (dt-proto/-sub-buffer buf 1 (dec (count buf))))
+  (-first [_array] (nth buf 0))
+  (-rest  [_array] (dt-proto/-sub-buffer buf 1 (dec (count buf))))
   IFn
   (-invoke [array n]
     (let [n (if (< n 0) (+ (count array) n) n)]
@@ -63,29 +63,29 @@
   (-iterator [this] (dt-arrays/nth-iter this))
 
   dt-proto/PElemwiseDatatype
-  (-elemwise-datatype [this] dtype)
+  (-elemwise-datatype [_this] dtype)
   dt-proto/PDatatype
-  (-datatype [this] :list)
+  (-datatype [_this] :list)
   dt-proto/PSubBufferCopy
-  (-sub-buffer-copy [item offset length]
+  (-sub-buffer-copy [_item offset length]
     (dt-arrays/make-typed-buffer (dt-proto/-sub-buffer-copy buf offset length)
                                  dtype metadata))
   dt-proto/PSubBuffer
-  (-sub-buffer [item offset length]
+  (-sub-buffer [_item offset length]
     (dt-arrays/make-typed-buffer (dt-proto/-sub-buffer buf offset length)
                                  dtype metadata))
   dt-proto/PToTypedArray
-  (-convertible-to-typed-array? [this] (dt-proto/-convertible-to-typed-array? buf))
-  (->typed-array [this] (dt-proto/->typed-array (dt-proto/-sub-buffer buf 0 ptr)))
+  (-convertible-to-typed-array? [_this] (dt-proto/-convertible-to-typed-array? buf))
+  (->typed-array [_this] (dt-proto/->typed-array (dt-proto/-sub-buffer buf 0 ptr)))
 
   dt-proto/PToJSArray
-  (-convertible-to-js-array? [this] (dt-proto/-convertible-to-js-array? buf))
-  (->js-array [this] (dt-proto/->js-array (dt-proto/-sub-buffer buf 0 ptr)))
+  (-convertible-to-js-array? [_this] (dt-proto/-convertible-to-js-array? buf))
+  (->js-array [_this] (dt-proto/->js-array (dt-proto/-sub-buffer buf 0 ptr)))
 
 
   dt-proto/PAgetable
-  (-convertible-to-agetable? [this] (dt-proto/-convertible-to-agetable? buf))
-  (->agetable [this] (dt-proto/->agetable (dt-proto/-sub-buffer buf 0 ptr)))
+  (-convertible-to-agetable? [_this] (dt-proto/-convertible-to-agetable? buf))
+  (->agetable [_this] (dt-proto/->agetable (dt-proto/-sub-buffer buf 0 ptr)))
 
   dt-proto/PSetValue
   (-set-value! [item idx data]
@@ -94,7 +94,7 @@
         (dt-base/set-value! idx data))
     item)
   dt-proto/PSetConstant
-  (-set-constant! [item offset elem-count data]
+  (-set-constant! [_item offset elem-count data]
     (-> (dt-proto/-sub-buffer buf 0 ptr)
         (dt-base/set-constant! offset elem-count data)))
   dt-proto/PListLike

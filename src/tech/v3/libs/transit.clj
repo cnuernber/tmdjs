@@ -271,8 +271,6 @@
 
   (do
 
-    (require '[tech.v3.io :as io])
-
     (defn t->file
       [ds fname]
       (with-open [outs (io/output-stream! fname)]

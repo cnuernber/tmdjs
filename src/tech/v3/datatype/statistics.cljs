@@ -16,10 +16,10 @@
         (set! n-elems (inc n-elems))))
     this)
   IPrintWithWriter
-  (-pr-writer [this w options]
+  (-pr-writer [this w _options]
     (-write w (str "#sum-reducer" @this)))
   IDeref
-  (-deref [this]
+  (-deref [_this]
     {:sum total
      :n-elems n-elems}))
 

@@ -1,2 +1,5 @@
 {:config-paths ["cnuernber/dtype-next"]
- :skip-comments false}
+ :skip-comments true
+ ;;We have to use private calls into the cljs runtime in order to avoid duplicating
+ ;;some pretty dirty code.
+ :linters {:private-call {:level :off}}}

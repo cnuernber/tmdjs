@@ -196,6 +196,7 @@
         (equiv-agetable this other))
       ICloneable
       (-clone [item]
+        #_:clj-kondo/ignore
         (let [len (aget item "length")
               retval (js* "new item.constructor(len)")]
           (.set retval item)
@@ -216,8 +217,10 @@
       (-count [array] (.-length array))
       IReduce
       (-reduce
-        ([array f] (array-reduce array f))
-        ([array f start] (array-reduce array f start)))
+        ([array f]
+         (array-reduce array f))
+        ([array f start]
+         (array-reduce array f start)))
       IPrintWithWriter
       (-pr-writer [rdr writer opts]
         (-write writer (dt-base/reader->str rdr "typed-array")))
@@ -329,16 +332,16 @@
 ;;Booleans are stored as 1,0 bytes.
 (deftype BooleanArray [buf metadata ^:unsynchronized-mutable hashcode]
   ICounted
-  (-count [item] (count buf))
+  (-count [_item] (count buf))
   ICloneable
-  (-clone [item] (make-boolean-array (clone buf) metadata))
+  (-clone [_item] (make-boolean-array (clone buf) metadata))
   dt-proto/PElemwiseDatatype
-  (-elemwise-datatype [item] :boolean)
+  (-elemwise-datatype [_item] :boolean)
   dt-proto/PSubBufferCopy
-  (-sub-buffer-copy [item off len]
+  (-sub-buffer-copy [_item off len]
     (make-boolean-array (dt-proto/-sub-buffer-copy buf off len) metadata))
   dt-proto/PSubBuffer
-  (-sub-buffer [item off len]
+  (-sub-buffer [_item off len]
     (make-boolean-array (dt-proto/-sub-buffer buf off len) metadata))
   dt-proto/PSetValue
   (-set-value! [item idx data]
@@ -360,29 +363,29 @@
   IIterable
   (-iterator [this] (nth-iter this))
   dt-proto/PToTypedArray
-  (-convertible-to-typed-array? [this] true)
-  (->typed-array [this] buf)
+  (-convertible-to-typed-array? [_this] true)
+  (->typed-array [_this] buf)
   ;;Disable aget for this buffer.  This is because it will result in algorithms
   ;;getting the base buffer which will mean they get 1,0 instead of true,false.
   dt-proto/PAgetable
-  (-convertible-to-agetable? [this] false)
+  (-convertible-to-agetable? [_this] false)
   IWithMeta
   (-with-meta [coll new-meta]
     (if (identical? new-meta metadata)
       coll
       (BooleanArray. buf new-meta nil)))
   IMeta
-  (-meta [coll] metadata)
+  (-meta [_coll] metadata)
   IPrintWithWriter
-  (-pr-writer [rdr writer opts]
+  (-pr-writer [rdr writer _opts]
     (-write writer (dt-base/reader->str rdr "typed-array")))
   ISequential
   ISeqable
-  (-seq [array]
+  (-seq [_array]
     (when-not (zero? (count buf))
       (map byte->boolean buf)))
   ISeq
-  (-first [array] (byte->boolean (nth buf 0)))
+  (-first [_array] (byte->boolean (nth buf 0)))
   (-rest  [array] (dt-base/sub-buffer array 1 (dec (count buf))))
   IFn
   (-invoke [array n]
@@ -405,22 +408,22 @@
 ;;Necessary to add an actual datatype to a js array and metadata to typed arrays
 (deftype TypedBuffer [buf elem-dtype metadata ^:unsynchronized-mutable hashcode]
   ICounted
-  (-count [item] (count buf))
+  (-count [_item] (count buf))
   ICloneable
-  (-clone [item] (make-typed-buffer (clone buf) elem-dtype metadata))
+  (-clone [_item] (make-typed-buffer (clone buf) elem-dtype metadata))
   dt-proto/PElemwiseDatatype
-  (-elemwise-datatype [item] elem-dtype)
+  (-elemwise-datatype [_item] elem-dtype)
   dt-proto/PToJSArray
-  (-convertible-to-js-array? [item] (dt-proto/-convertible-to-js-array? buf))
-  (->js-array [item] (dt-proto/->js-array buf))
+  (-convertible-to-js-array? [_item] (dt-proto/-convertible-to-js-array? buf))
+  (->js-array [_item] (dt-proto/->js-array buf))
   dt-proto/PToTypedArray
-  (-convertible-to-typed-array? [item] (dt-proto/-convertible-to-typed-array? buf))
-  (->typed-array [item] (dt-proto/->typed-array buf))
+  (-convertible-to-typed-array? [_item] (dt-proto/-convertible-to-typed-array? buf))
+  (->typed-array [_item] (dt-proto/->typed-array buf))
   dt-proto/PSubBufferCopy
-  (-sub-buffer-copy [item off len]
+  (-sub-buffer-copy [_item off len]
     (make-typed-buffer (dt-base/sub-buffer-copy buf off len) elem-dtype metadata))
   dt-proto/PSubBuffer
-  (-sub-buffer [item off len]
+  (-sub-buffer [_item off len]
     (make-typed-buffer (dt-base/sub-buffer buf off len) elem-dtype metadata))
   dt-proto/PSetValue
   (-set-value! [item idx data]
@@ -431,23 +434,23 @@
     (dt-proto/-set-constant! buf offset elem-count data)
     item)
   IReduce
-  (-reduce [array f] (-reduce buf f))
-  (-reduce [array f start] (-reduce buf f start))
+  (-reduce [_array f] (-reduce buf f))
+  (-reduce [_array f start] (-reduce buf f start))
   IWithMeta
   (-with-meta [coll new-meta]
     (if (identical? new-meta metadata)
       coll
       (make-typed-buffer buf elem-dtype new-meta)))
   IMeta
-  (-meta [coll] metadata)
+  (-meta [_coll] metadata)
   IPrintWithWriter
-  (-pr-writer [rdr writer opts]
+  (-pr-writer [rdr writer _opts]
     (-write writer (dt-base/reader->str rdr "typed-buffer")))
   ISeqable
-  (-seq [array] (array-seq buf))
+  (-seq [_array] (array-seq buf))
   ISeq
-  (-first [array] (nth buf 0))
-  (-rest  [array] (dt-proto/-sub-buffer buf 1 (dec (count buf))))
+  (-first [_array] (nth buf 0))
+  (-rest  [_array] (dt-proto/-sub-buffer buf 1 (dec (count buf))))
   IFn
   (-invoke [array n]
     (nth-impl n (count array) nil nth buf))
@@ -458,7 +461,7 @@
     (nth-impl n (count array) not-found nth buf))
   ISequential
   IHash
-  (-hash [o]
+  (-hash [_o]
     (when-not hashcode
       (set! hashcode
             (if-let [aget-buf (dt-base/as-agetable buf)]
@@ -466,12 +469,12 @@
               (hash-nthable buf))))
     hashcode)
   IEquiv
-  (-equiv [this other]
+  (-equiv [_this other]
     (if-let [aget-buf (dt-base/as-agetable buf)]
       (equiv-agetable aget-buf other)
       (equiv-nthable buf other)))
   IIterable
-  (-iterator [this] (index-iter buf)))
+  (-iterator [_this] (index-iter buf)))
 
 
 (defn make-typed-buffer

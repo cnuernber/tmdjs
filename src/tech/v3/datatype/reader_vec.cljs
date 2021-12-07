@@ -2,9 +2,7 @@
   (:require [tech.v3.datatype.copy-make-container :as dt-cmc]
             [tech.v3.datatype.arrays :as dt-arrays]
             [tech.v3.datatype.base :as dt-base]
-            [tech.v3.datatype.protocols :as dt-proto]
-            [tech.v3.datatype.casting :as casting]
-            [clojure.string :as s]))
+            [tech.v3.datatype.protocols :as dt-proto]))
 
 
 (declare reader-vec)
@@ -35,13 +33,13 @@
       (reader-vec cnt dtype idx->val meta)))
 
   IMeta
-  (-meta [coll] meta)
+  (-meta [_coll] meta)
 
   IStack
   (-peek [coll]
     (when (> cnt 0)
       (-nth coll (dec cnt))))
-  (-pop [coll]
+  (-pop [_coll]
     (cond
      (zero? cnt) (throw (js/Error. "Can't pop empty vector"))
      (== 1 cnt) (-with-meta (.-EMPTY PersistentVector) meta)
@@ -53,7 +51,7 @@
     (persistent! (conj! (transient coll) o)))
 
   IEmptyableCollection
-  (-empty [coll] (-with-meta (.-EMPTY PersistentVector) meta))
+  (-empty [_coll] (-with-meta (.-EMPTY PersistentVector) meta))
 
   ISequential
   IEquiv
@@ -69,14 +67,14 @@
       (map #(nth coll %) (range cnt))))
 
   ICounted
-  (-count [coll] cnt)
+  (-count [_coll] cnt)
 
   IIndexed
-  (-nth [coll n]
+  (-nth [_coll n]
     (let [n (if (< n 0) (+ n cnt) n)]
       (when-not (< n cnt) (throw (js/Error. (str "nth out of range:" n " >= " cnt))))
       (idx->val n)))
-  (-nth [coll n not-found]
+  (-nth [_coll n not-found]
     (let [n (if (< n 0) (+ n cnt) n)]
       (idx->val n)
       not-found))
@@ -92,14 +90,14 @@
     (if (number? k)
       (-assoc-n coll k v)
       (throw (js/Error. "Vector's key for assoc must be a number."))))
-  (-contains-key? [coll k]
+  (-contains-key? [_coll k]
     (if (integer? k)
       (let [k (if (< k 0) (+ cnt k) k)]
         (and (<= 0 k) (< k cnt)))
       false))
 
   IFind
-  (-find [coll n]
+  (-find [_coll n]
     (let [n (if (< n 0) (+ cnt n) n)]
       (when (and (<= 0 n) (< n cnt))
         (MapEntry. n (idx->val n) nil))))
@@ -122,7 +120,7 @@
         :else (throw (js/Error. (str "Index " n " out of bounds  [0," cnt "]"))))))
 
   IReduce
-  (-reduce [v f]
+  (-reduce [_v f]
     (case cnt
       0 (f)
       1 (f (idx->val 0))
@@ -131,7 +129,7 @@
         (if (and (< idx cnt) (not (reduced? init)))
           (recur (inc idx) (f init (idx->val idx)))
           init))))
-  (-reduce [v f init]
+  (-reduce [_v f init]
     (if (reduced? init)
       init
       (case cnt
@@ -144,7 +142,7 @@
             init)))))
 
   IKVReduce
-  (-kv-reduce [v f init]
+  (-kv-reduce [_v f init]
     (if (reduced? init)
       init
       (case cnt
@@ -153,7 +151,8 @@
         (loop [idx 0
                init init]
           (if (and (< idx cnt) (not (reduced? init)))
-            (recur (inc idx) (f init idx (idx->val idx))))))))
+            (recur (inc idx) (f init idx (idx->val idx)))
+            init)))))
 
   IFn
   (-invoke [coll k]
@@ -162,7 +161,7 @@
     (-nth coll k not-found))
 
   IEditableCollection
-  (-as-transient [coll]
+  (-as-transient [_coll]
     (loop [idx 0
            retval (transient [])]
       (if (< idx cnt)
@@ -179,18 +178,18 @@
     (dt-arrays/nth-iter this))
 
   IPrintWithWriter
-  (-pr-writer [rdr writer opts]
+  (-pr-writer [rdr writer _opts]
     (-write writer (dt-base/reader->str rdr "reader")))
 
   dt-proto/PDatatype
-  (-datatype [this] :reader)
+  (-datatype [_this] :reader)
   dt-proto/PElemwiseDatatype
-  (-elemwise-datatype [this] dtype)
+  (-elemwise-datatype [_this] dtype)
   dt-proto/PSubBufferCopy
   (-sub-buffer-copy [this off len]
     (dt-proto/-sub-buffer this off len))
   dt-proto/PSubBuffer
-  (-sub-buffer [this off len]
+  (-sub-buffer [_this off len]
     (let [off (if (< off 0) (+ cnt off) off)
           mlen (+ off len)]
       (when-not (<= mlen cnt)

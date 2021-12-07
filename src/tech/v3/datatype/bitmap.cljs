@@ -2,7 +2,6 @@
   "set implementation specialized towards unsigned 32 bit integers."
   (:require [tech.v3.datatype.protocols :as dt-proto]
             [tech.v3.datatype.base :as dt-base]
-            [tech.v3.datatype.copy-make-container :as dt-cmc]
             [tech.v3.datatype.list :as dt-list]
             [clojure.set :as set]))
 
@@ -124,43 +123,3 @@
         (if (.-done next-val)
           (persistent! retval)
           (recur (conj! retval (.-value next-val))))))))
-
-
-(comment
-  ;;construction
-  (def ignored
-    (do
-      (println "set construction")
-      (def data (time (->bitmap (range 1000000))))
-      (println "set union")
-      (time (dt-proto/-set-or data data))
-      (println "to ordered indexes")
-      (time (set->ordered-indexes data))))
-
-
-;; set construction
-;; "Elapsed time: 119.516597 msecs"
-;; set union
-;; "Elapsed time: 363.884627 msecs"
-;; to ordered indexes
-;; "Elapsed time: 26.387132 msecs"
-
-
-  (def ignored
-    (do
-      (println "set construction")
-      (def data (time (set (range 1000000))))
-      (println "set-union")
-      (time (set/union data data))
-      (println "to ordered indexes")
-      (time (set->ordered-indexes data))))
-
-
-;; set construction
-;; "Elapsed time: 1146.016398 msecs"
-;; set-union
-;; "Elapsed time: 877.601483 msecs"
-;; to ordered indexes
-;; "Elapsed time: 389.167092 msecs"
-
-  )

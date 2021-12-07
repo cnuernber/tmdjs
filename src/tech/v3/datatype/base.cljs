@@ -204,7 +204,7 @@
         (dotimes [idx n-elems]
           (consume-fn idx (nth item idx))))
       :else
-      (if-let [item (seq item)]
+      (when-let [item (seq item)]
         (loop [val (first item)
                item (rest item)
                idx 0]
