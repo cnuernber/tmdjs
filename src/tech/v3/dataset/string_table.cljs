@@ -15,27 +15,27 @@
 
 (deftype StringTable [container str-table metadata]
   ICounted
-  (-count [this] (count container))
+  (-count [_this] (count container))
   ICloneable
-  (-clone [this]
+  (-clone [_this]
     (clone container))
   IFn
   (-invoke [this idx] (nth this idx))
   IIndexed
-  (-nth [this n] (nth container n))
-  (-nth [this n not-found] (nth container n not-found))
+  (-nth [_this n] (nth container n))
+  (-nth [_this n not-found] (nth container n not-found))
   IMeta
-  (-meta [this] metadata)
+  (-meta [_this] metadata)
   IWithMeta
-  (-with-meta [this metadata] (StringTable. container str-table metadata))
+  (-with-meta [_this metadata] (StringTable. container str-table metadata))
   IPrintWithWriter
-  (-pr-writer [array writer opts]
+  (-pr-writer [_array writer _opts]
     (-write writer (str "#string-table"
                         (take 20 (seq container)))))
   dt-proto/PElemwiseDatatype
-  (-elemwise-datatype [this] :string)
+  (-elemwise-datatype [_this] :string)
   dt-proto/PSubBuffer
-  (-sub-buffer [this off len]
+  (-sub-buffer [_this off len]
     (StringTable. (dtype/sub-buffer container off len)
                   str-table
                   metadata))
@@ -47,7 +47,7 @@
   (-add-all [this data]
     (dtype/iterate! #(dt-proto/-add this %) data)
     this)
-  (-ensure-capacity [this buflen]
+  (-ensure-capacity [_this buflen]
     (dt-proto/-ensure-capacity container buflen)))
 
 

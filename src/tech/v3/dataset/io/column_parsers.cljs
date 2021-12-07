@@ -6,8 +6,7 @@
   (:require [tech.v3.datatype :as dtype]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.protocols :as dt-proto]
-            [tech.v3.dataset.impl.column :as dt-col]
-            [base64-js :as b64]))
+            [tech.v3.dataset.impl.column :as dt-col]))
 
 
 (defprotocol PParser
@@ -83,11 +82,11 @@
                    missing
                    colname]
   ICounted
-  (-count [this] (count container))
+  (-count [_this] (count container))
   dt-proto/PElemwiseDatatype
-  (-elemwise-datatype [this] (dtype/elemwise-datatype container))
+  (-elemwise-datatype [_this] (dtype/elemwise-datatype container))
   dt-proto/PListLike
-  (-add [this val]
+  (-add [_this val]
     (if (missing? val missing-val)
       (do
         (.add missing (count container))
@@ -101,7 +100,7 @@
             (if (>= n-missing (count container))
               (let [new-container (dt-col/make-container val-dt)
                     new-missing (dt-col/datatype->missing-value val-dt)]
-                (dotimes [idx n-missing]
+                (dotimes [_idx n-missing]
                   (dt-proto/-add new-container new-missing))
                 (set! container new-container)
                 (set! container-dtype val-dt)
@@ -131,7 +130,7 @@
                   new-container (dt-col/make-container data-dtype)
                   new-missing (dt-col/datatype->missing-value data-dtype)
                   n-missing (count missing)]
-              (dotimes [idx n-missing]
+              (dotimes [_idx n-missing]
                 (dt-proto/-add new-container new-missing))
               (set! container new-container)
               (set! container-dtype data-dtype)
@@ -142,8 +141,8 @@
             (when (#{:float32 :float64 :object} (dtype/elemwise-datatype agetable-data))
               (dotimes [idx (count agetable-data)]
                 (let [dval (aget agetable-data idx)]
-                  (if (or (nil? dval)
-                          (js/isNaN dval))
+                  (when (or (nil? dval)
+                            (js/isNaN dval))
                     ;;record NaN
                     (.add missing (+ idx cur-off))))))))
         ;;fallback to basic iteration
@@ -152,7 +151,7 @@
   (-add-value! [this idx val]
     (add-missing! idx missing-val container missing)
     (dt-proto/-add this val))
-  (-finalize [this rowcount]
+  (-finalize [_this rowcount]
     (add-missing! rowcount missing-val container missing)
     #:tech.v3.dataset{:data (or (dtype/as-datatype-accurate-agetable container) container)
                       :name colname
@@ -164,30 +163,3 @@
   [colname]
   (ObjParse. (dt-col/make-container :boolean) :boolean false
              (js/Set.) colname))
-
-
-(comment
-  (do
-    (let [p (fixed-type-parser :hey :boolean)]
-      (-add-unindexed! p true)
-      (-add-unindexed! p false)
-      (-finalize p 4))
-
-    (let [p (fixed-type-parser :hey :float32)]
-      (-add-unindexed! p 20)
-      (-add-unindexed! p 30)
-      (-finalize p 4))
-
-    (let [p (fixed-type-parser :hey :string)]
-      (-add-unindexed! p "hey")
-      (-add-unindexed! p "you")
-      (-finalize p 4))
-
-    (let [p (promotional-object-parser :hey)]
-      (-add-unindexed! p nil)
-      (-add-unindexed! p 5)
-      (-add-unindexed! p 10)
-      (-add-unindexed! p "data")
-      (-finalize p 5))
-    )
-  )

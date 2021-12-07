@@ -46,14 +46,14 @@
       (ColumnwiseMap. new-meta col-ary colname->col row-idx __hash)))
 
   IMeta
-  (-meta [coll] meta)
+  (-meta [_coll] meta)
 
   ICollection
   (-conj [coll entry]
     (-conj (into {} coll) entry))
 
   IEmptyableCollection
-  (-empty [coll] (-with-meta (.-EMPTY PersistentHashMap) meta))
+  (-empty [_coll] (-with-meta (.-EMPTY PersistentHashMap) meta))
 
   IEquiv
   (-equiv [coll other] (equiv-map coll other))
@@ -62,18 +62,18 @@
   (-hash [coll] (caching-hash coll hash-unordered-coll __hash))
 
   ISeqable
-  (-seq [coll]
+  (-seq [_coll]
     (when (pos? (count col-ary))
       (map (fn [col] (MapEntry. (name col) (col row-idx) nil)) col-ary)))
 
   ICounted
-  (-count [coll] (count col-ary))
+  (-count [_coll] (count col-ary))
 
   ILookup
   (-lookup [coll k]
     (-lookup coll k nil))
 
-  (-lookup [coll k not-found]
+  (-lookup [_coll k not-found]
     (if-let [idx (colname->col k)]
       ((col-ary idx) row-idx)
       not-found))
@@ -82,11 +82,11 @@
   (-assoc [coll k v]
     (persistent! (assoc! (transient coll) k v)))
 
-  (-contains-key? [coll k]
+  (-contains-key? [_coll k]
     (-contains-key? colname->col k))
 
   IFind
-  (-find [coll k]
+  (-find [_coll k]
     (when-let [col-idx (colname->col k)]
       (MapEntry. k ((col-ary col-idx) row-idx) nil)))
 
@@ -103,7 +103,7 @@
       coll))
 
   IKVReduce
-  (-kv-reduce [coll f init]
+  (-kv-reduce [_coll f init]
     (let [n-cols (count col-ary)]
       (loop [idx 0
              init init]
@@ -123,7 +123,7 @@
     (-lookup coll k not-found))
 
   IEditableCollection
-  (-as-transient [coll]
+  (-as-transient [_coll]
     (let [n-cols (count col-ary)]
       (loop [retval (transient {})
              idx 0]
@@ -135,7 +135,7 @@
   (-pr-writer [cmap writer opts]
     (-pr-writer (into {} cmap) writer opts))
   dt-proto/PDatatype
-  (-datatype [this] :persistent-map))
+  (-datatype [_this] :persistent-map))
 
 
 (defn columnwise-map

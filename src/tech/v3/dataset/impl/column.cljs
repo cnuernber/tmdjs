@@ -64,20 +64,20 @@
   (equiv [this other]
     (-equiv this other))
   ICounted
-  (-count [this] (count buf))
+  (-count [_this] (count buf))
   ICloneable
-  (-clone [this] (new-column (clone  buf) (clone missing) metadata numeric?))
+  (-clone [_this] (new-column (clone  buf) (clone missing) metadata numeric?))
   IFn
   (-invoke [this n] (nth this n))
   IIndexed
-  (-nth [this n]
+  (-nth [_this n]
     (dt-arrays/nth-impl n (count buf) ::dt-arrays/exception
                         (fn [buf n]
                           (if (.has missing n)
                             (if numeric? ##NaN nil)
                             (nth buf n)))
                         buf))
-  (-nth [this n not-found]
+  (-nth [_this n not-found]
     (dt-arrays/nth-impl n (count buf) not-found
                         (fn [buf n]
                           (if (.has missing n)
@@ -95,15 +95,15 @@
       coll
       (new-column buf missing new-meta numeric?)))
   IMeta
-  (-meta [coll]
+  (-meta [_coll]
     (assoc metadata
            :row-count (count buf)
            :datatype (dtype/elemwise-datatype buf)))
   IPrintWithWriter
-  (-pr-writer [array writer opts]
+  (-pr-writer [array writer _opts]
     (-write writer (dt-base/reader->str array "column")))
   INamed
-  (-name [this] (:name metadata))
+  (-name [_this] (:name metadata))
   ISequential
   IHash
   (-hash [o]
@@ -125,23 +125,23 @@
       (-reduce buf f start)
       (dt-arrays/nth-reduce this f start)))
   dt-proto/PElemwiseDatatype
-  (-elemwise-datatype [this] (dtype/elemwise-datatype buf))
+  (-elemwise-datatype [_this] (dtype/elemwise-datatype buf))
   dt-proto/PDatatype
-  (-datatype [this] :column)
+  (-datatype [_this] :column)
   dt-proto/PToJSArray
-  (-convertible-to-js-array? [this] (and (dt-proto/-convertible-to-js-array? buf)
-                                         (== 0 (aget missing "size"))))
-  (->js-array [this] (dt-proto/->js-array buf))
+  (-convertible-to-js-array? [_this] (and (dt-proto/-convertible-to-js-array? buf)
+                                          (== 0 (aget missing "size"))))
+  (->js-array [_this] (dt-proto/->js-array buf))
   dt-proto/PToTypedArray
-  (-convertible-to-typed-array? [this] (and (dt-proto/-convertible-to-typed-array? buf)
+  (-convertible-to-typed-array? [_this] (and (dt-proto/-convertible-to-typed-array? buf)
                                             (== 0 (aget missing "size"))))
-  (->typed-array [this] (dt-proto/->typed-array buf))
+  (->typed-array [_this] (dt-proto/->typed-array buf))
   dt-proto/PAgetable
-  (-convertible-to-agetable? [this] (and (dt-proto/-convertible-to-agetable? buf)
+  (-convertible-to-agetable? [_this] (and (dt-proto/-convertible-to-agetable? buf)
                                          (== 0 (aget missing "size"))))
-  (->agetable [this] (dt-proto/->agetable buf))
+  (->agetable [_this] (dt-proto/->agetable buf))
   dt-proto/PSetValue
-  (-set-value! [this idx data]
+  (-set-value! [_this idx data]
     (if (= :reader (argtypes/argtype data))
       (let [n-elems (count data)]
         (dotimes [elidx n-elems]
@@ -149,7 +149,7 @@
       (.remove missing idx))
     (dt-proto/-set-value! buf idx data))
   dt-proto/PSetConstant
-  (-set-constant! [this idx elem-count value]
+  (-set-constant! [_this idx elem-count value]
     (dotimes [elidx elem-count]
       (.remove missing (+ elidx idx)))
     (dt-proto/-set-constant! buf idx elem-count value))
@@ -158,18 +158,18 @@
     (let [new-buf (dt-base/sub-buffer buf off len)
           new-missing (js/Set.)]
       (dotimes [idx len]
-        (if (.has missing (+ off idx))
+        (when (.has missing (+ off idx))
           (.add new-missing idx)))
       (new-column new-buf new-missing (meta col) numeric?)))
   ds-proto/PColumn
-  (-is-column? [this] true)
-  (-column-buffer [this] buf)
+  (-is-column? [_this] true)
+  (-column-buffer [_this] buf)
   ds-proto/PRowCount
-  (-row-count [this] (count buf))
+  (-row-count [_this] (count buf))
   ds-proto/PMissing
-  (-missing [this] missing)
+  (-missing [_this] missing)
   ds-proto/PSelectRows
-  (-select-rows [this rowidxs]
+  (-select-rows [_this rowidxs]
     (let [rowidxs (if (dtype/integer-range? rowidxs)
                     (clip-integer-range (count buf) rowidxs)
                     rowidxs)

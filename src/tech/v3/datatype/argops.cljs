@@ -199,28 +199,28 @@ cljs.user> (argops/argsort nil  ;;no compare fn
   * `:comparator` - a specific comparator to use; defaults to `comparator`."
   ([data target options]
    (let [comp (get options :comparator compare)
-         data (dt-base/ensure-indexable data)]
-     (let [n-elems (count data)]
-       (loop [low (long 0)
-              high n-elems]
-         (if (< low high)
-           (let [mid (+ low (quot (- high low) 2))
-                 buf-data (nth data mid)
-                 compare-result (comp buf-data target)]
-             (if (== 0 compare-result)
-               (recur mid mid)
-               (if (and (< compare-result 0)
-                        (not= mid low))
-                 (recur mid high)
-                 (recur low mid))))
-           (loop [low low]
-             (let [buf-data (nth data low)
-                   comp (comp target buf-data)]
-               (cond
-                 (or (< comp 0) (== 0 low)) low
-                 (> comp 0) (unchecked-inc low)
-                 ;;When values are equal, track backward to first non-equal member.
-                 :else
-                 (recur (unchecked-dec low))))))))))
+         data (dt-base/ensure-indexable data)
+         n-elems (count data)]
+     (loop [low (long 0)
+            high n-elems]
+       (if (< low high)
+         (let [mid (+ low (quot (- high low) 2))
+               buf-data (nth data mid)
+               compare-result (comp buf-data target)]
+           (if (== 0 compare-result)
+             (recur mid mid)
+             (if (and (< compare-result 0)
+                      (not= mid low))
+               (recur mid high)
+               (recur low mid))))
+         (loop [low low]
+           (let [buf-data (nth data low)
+                 comp (comp target buf-data)]
+             (cond
+               (or (< comp 0) (== 0 low)) low
+               (> comp 0) (unchecked-inc low)
+               ;;When values are equal, track backward to first non-equal member.
+               :else
+               (recur (unchecked-dec low)))))))))
   ([data target]
    (binary-search data target nil)))

@@ -9,8 +9,7 @@
             [tech.v3.datatype.arrays :as dt-arrays]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.bitmap :as bitmap]
-            [tech.v3.datatype.reader-vec :as rvec]
-            [clojure.string :as s])
+            [tech.v3.datatype.reader-vec :as rvec])
   (:refer-clojure :exclude [clone counted? indexed? reverse]))
 
 
@@ -343,7 +342,7 @@ cljs.user> (dtype/list-coalesce! [[2 3 4][5 6 7]] (dtype/make-list :float32))
   "elementwise map a function over a sequences.  Returns a countable/indexable array
   of results."
   [map-fn ret-dtype & args]
-  (if (= 0 (count args))
+  (when (= 0 (count args))
     (throw (js/Error. "No args provided, not a transducing function")))
   (let [ret-dtype (or ret-dtype (reduce casting/widest-datatype
                                         (map elemwise-datatype args)))]

@@ -4,7 +4,6 @@
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.arrays :as dt-arrays]
             [tech.v3.datatype.protocols :as dt-proto]
-            [tech.v3.datatype.datetime :as dtype-dt]
             [tech.v3.dataset.impl.column :as col-impl]
             [tech.v3.dataset.io.column-parsers :as col-parsers]
             [tech.v3.dataset.protocols :as ds-proto]
@@ -83,11 +82,11 @@
                      (when-not n-rows (throw (js/Error. "Potentially infinite iteration")))
                      (scan-data data colname n-rows))
                    (= :reader darg)
-                   (let [n-rows (or n-rows (count data))]
-                     (let [data (extend-data data n-rows)]
-                       #:tech.v3.dataset{:data data
-                                         :missing (scan-missing data)
-                                         :name colname}))
+                   (let [n-rows (or n-rows (count data))
+                         data (extend-data data n-rows)]
+                     #:tech.v3.dataset{:data data
+                                       :missing (scan-missing data)
+                                       :name colname})
                    (= :scalar darg)
                    (let [container (dtype/make-container dtype n-rows)
                          missing? (= data (col-impl/datatype->missing-value dtype))
@@ -96,15 +95,15 @@
                      (when missing? (dotimes [idx n-rows] (.add missing idx)))
                      #:tech.v3.dataset{:data container
                                        :missing missing
-                                       :name colname}))]
-      (let [{:keys [tech.v3.dataset/name tech.v3.dataset/data
-                    tech.v3.dataset/missing tech.v3.dataset/metadata]} colmap
-            missing (or missing (js/Set.))
-            name (or colname name :_unnamed)]
-        (col-impl/new-column data missing
-                             (assoc metadata :name name)
-                             (casting/numeric-type?
-                              (dtype/elemwise-datatype data)))))))
+                                       :name colname}))
+          {:keys [tech.v3.dataset/name tech.v3.dataset/data
+                  tech.v3.dataset/missing tech.v3.dataset/metadata]} colmap
+          missing (or missing (js/Set.))
+          name (or colname name :_unnamed)]
+      (col-impl/new-column data missing
+                           (assoc metadata :name name)
+                           (casting/numeric-type?
+                            (dtype/elemwise-datatype data))))))
 
 
 (declare cols->str)
@@ -119,14 +118,14 @@
   (equiv [this other]
     (-equiv this other))
   ICounted
-  (-count [this] (count col-ary))
+  (-count [_this] (count col-ary))
 
   ICloneable
-  (-clone [this]
+  (-clone [_this]
     (make-dataset (mapv clone col-ary) colname->col metadata))
 
   IAssociative
-  (^boolean -contains-key? [coll k]
+  (^boolean -contains-key? [_coll k]
    (-contains-key? colname->col k))
 
   (^clj -assoc [coll k v]
@@ -156,7 +155,7 @@
 
   ILookup
   (-lookup [coll k] (-lookup coll k nil))
-  (-lookup [coll k not-found]
+  (-lookup [_coll k not-found]
     (if-let [col-idx (colname->col k)]
       (col-ary col-idx)
       not-found))
@@ -170,23 +169,23 @@
                        :row-count (ds-proto/-row-count coll)
                        :column-count (ds-proto/-column-count coll)))
   IWithMeta
-  (-with-meta [coll new-meta]
+  (-with-meta [_coll new-meta]
     (make-dataset col-ary colname->col new-meta))
 
   INamed
-  (-name [this] (:name metadata))
+  (-name [_this] (:name metadata))
 
   ISeqable
-  (-seq [this]
+  (-seq [_this]
     (when-not (zero? (count col-ary))
       (map #(MapEntry. (name %) % nil) col-ary)))
 
   ISeq
-  (-first [this] (first col-ary))
-  (-rest [this] (rest col-ary))
+  (-first [_this] (first col-ary))
+  (-rest [_this] (rest col-ary))
 
   IEmptyableCollection
-  (-empty [coll] (make-dataset [] {} metadata))
+  (-empty [_coll] (make-dataset [] {} metadata))
 
   IPrintWithWriter
   (-pr-writer [array writer opts]
@@ -209,7 +208,7 @@
               (vals o))))
 
   IHash
-  (-hash [this]
+  (-hash [_this]
     (when-not hashcode
       (set! hashcode
             (let [n-elems (count col-ary)]
@@ -240,21 +239,21 @@
       false))
 
   IIterable
-  (-iterator [this] (dt-arrays/nth-iter col-ary))
+  (-iterator [_this] (dt-arrays/nth-iter col-ary))
 
   ds-proto/PRowCount
-  (-row-count [this]
+  (-row-count [_this]
     (if-let [col (nth col-ary 0 nil)]
       (count col)
       0))
 
   ds-proto/PColumnCount
-  (-column-count [this]
+  (-column-count [_this]
     (count col-ary))
 
   ds-proto/PDataset
-  (-is-dataset? [ds] true)
-  (-column [ds colname]
+  (-is-dataset? [_ds] true)
+  (-column [_ds colname]
     (if-let [col-idx (colname->col colname)]
       (col-ary col-idx)
       (throw (js/Error. (str "No column named \"" colname "\"")))))
@@ -287,14 +286,14 @@
       (dtype/reify-reader (count col-ary) #((col-ary %) idx))))
 
   ds-proto/PMissing
-  (-missing [this]
+  (-missing [_this]
     (let [retval (js/Set.)]
       (doseq [col col-ary]
         (dtype/iterate! #(.add retval %) (ds-proto/-missing col)))
       retval))
 
   ds-proto/PSelectRows
-  (-select-rows [this rowidxes]
+  (-select-rows [_this rowidxes]
     (make-dataset (mapv #(ds-proto/-select-rows % rowidxes) col-ary) colname->col metadata))
 
   ds-proto/PSelectColumns

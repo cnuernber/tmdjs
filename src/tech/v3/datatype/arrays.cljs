@@ -114,9 +114,9 @@
 
 (deftype AgetIter [data n-elems ^:unsynchronized-mutable i]
   Object
-  (hasNext [this]
+  (hasNext [_this]
     (< i n-elems))
-  (next [this]
+  (next [_this]
     (let [ret (aget data i)]
       (set! i (inc i))
       ret)))
@@ -130,9 +130,9 @@
 
 (deftype NthIter [data n-elems ^:unsynchronized-mutable i]
   Object
-  (hasNext [this]
+  (hasNext [_this]
     (< i n-elems))
-  (next [this]
+  (next [_this]
     (let [ret (nth data i)]
       (set! i (inc i))
       ret)))
