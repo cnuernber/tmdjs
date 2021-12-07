@@ -34,9 +34,9 @@ cljs.user> (-> (ds/->dataset {:a (range 100)
             [tech.v3.datatype.arrays :as arrays]
             [tech.v3.datatype.datetime :as dtype-dt]
             [tech.v3.dataset.impl.dataset :as ds-impl]
-            [tech.v3.dataset.impl.column :as col-impl :refer [Column]]
             [tech.v3.dataset.protocols :as ds-proto]
             [tech.v3.dataset.io.column-parsers :as col-parsers]
+            [tech.v3.dataset.impl.column :as col-impl]
             [base64-js :as b64]
             [cognitect.transit :as t]
             [clojure.set :as set])
@@ -537,7 +537,7 @@ cljs.user> (->> (ds/->dataset {:a (range 100)
           (cond
             (fn? replace-cmd) replace-cmd
             (= :value (first replace-cmd))
-            (fn [dt lhs rhs n-missing]
+            (fn [_dt _lhs _rhs n-missing]
               (repeat n-missing (second replace-cmd)))))]
     (reduce
      (fn [ds colname]
@@ -993,73 +993,3 @@ cljs.user> (ds/head (ds/row-map stocks (fn [row]
         ;;utf-8 encoded string
         (.toString)
         (transit-str->dataset))))
-
-
-(comment
-  (do
-    (def test-data (repeatedly 50000 #(hash-map
-                                       :time (rand)
-                                       :temp (int (* 255 (rand)))
-                                       :valid? (if (> (rand) 0.5) true false))))
-
-
-    (def test-ds (->dataset test-data {:parser-fn {:temp :uint8}}))
-    (def min-ds (select-rows test-ds (range 20))))
-
-
-  (def ignored (time (->> (cljs.core/concat test-data test-data)
-                          (cljs.core/sort-by :time)
-                          (dedupe)
-                          (count))))
-  ;;600ms
-
-  (def ignored (time (merge-by-column test-ds test-ds :time)))
-  ;;10-20ms
-
-  (def writer (t/writer :json))
-
-  (def ignored-raw (time (.write writer test-data)))
-
-  (def ignored-ds (time (dataset->transit-str test-ds)))
-
-  (def ignored (let [data (.write @writer* test-data)]
-                 (time (.read @reader* data))))
-
-  (def ignored (let [data (dataset->json test-ds)]
-                 (time (json->dataset data))))
-
-  (do
-
-    (def mapseq-data (atom nil))
-    (def ds-data (atom nil))
-
-    (def fs (js/require "fs"))
-
-
-    (.readFile fs "mapseq.transit-json"
-               (fn [err data]
-                 (reset! mapseq-data data)))
-
-    (.readFile fs "ds.transit-json"
-               (fn [err data]
-                 (reset! ds-data data))))
-
-
-  (def raw-data (time (transit-str->dataset (.toString @mapseq-data))))
-  ;;104ms
-  (def ds (time (transit-str->dataset (.toString @ds-data))))
-  ;; 11ms
-
-  (def dsum (time (reduce + (map :time raw-data))))
-  ;; 38ms
-  (def ddsum (time (reduce + (ds :time))))
-  ;;  0.4ms
-
-  (def sdata (time (cljs.core/sort-by :time raw-data)))
-  ;;373ms in node, 100ms in browser
-  (def sds (time (sort-by ds :time)))
-  ;;420ms - constructing the row maps takes time.
-  (def sds (time (sort-by-column ds :time)))
-  ;; 76ms - but going column-wise is much faster.
-
-  )

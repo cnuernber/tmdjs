@@ -1,1 +1,2 @@
-{:config-paths ["cnuernber/dtype-next"]}
+{:config-paths ["cnuernber/dtype-next"]
+ :skip-comments false}

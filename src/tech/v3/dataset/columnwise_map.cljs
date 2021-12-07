@@ -3,8 +3,8 @@
 
 (deftype ColAryRowIter [col-ary n-cols ^:mutable col-idx row-idx]
   Object
-  (hasNext [iter] (< col-idx n-cols))
-  (next [iter]
+  (hasNext [_iter] (< col-idx n-cols))
+  (next [_iter]
     (let [col-val (col-ary col-idx)]
       (set! col-idx (inc col-idx))
       (MapEntry. (name col-val) (col-val row-idx) nil))))
@@ -36,7 +36,7 @@
   (-clone [coll] (-> (into {} coll) (with-meta meta)))
 
   IIterable
-  (-iterator [coll]
+  (-iterator [_coll]
     (ColAryRowIter. col-ary (count col-ary) 0 row-idx))
 
   IWithMeta
