@@ -68,8 +68,7 @@
 (defn handler
   []
   (-> (bidi-ring/make-handler routes)
-      (wrap-format-java-time {:write-handlers tech-transit/java-time-write-handlers
-                              :read-handlers tech-transit/java-time-read-handlers})
+      (wrap-format-java-time)
       (wrap-cookies)
       (wrap-resource "public")
       (wrap-content-type)
