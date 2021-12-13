@@ -607,7 +607,7 @@ cljs.user> (->> (ds/->dataset {:a (range 100)
     (fn? filter-fn-or-ds)
     (filter-fn-or-ds dataset)
     :else
-    (throw (js/Error. (str"Unrecoginzed filter mechanism: " filter-fn-or-ds)))))
+    (throw (js/Error. (str "Unrecoginzed filter mechanism: " filter-fn-or-ds)))))
 
 
 (defn update
