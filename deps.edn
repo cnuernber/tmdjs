@@ -1,7 +1,7 @@
 {:paths ["src"]
  ;;We serialize datasets to transit-json
  :deps {com.cognitect/transit-cljs {:mvn/version "0.8.269"}
-        techascent/tech.ml.dataset {:mvn/version "6.039"}
+        techascent/tech.ml.dataset {:mvn/version "6.061"}
         tick/tick {:mvn/version "0.4.24-alpha"}
         com.cognitect/transit-clj {:mvn/version "1.0.324"}}
  :aliases
@@ -21,7 +21,7 @@
    :exec-fn hf.depstar/jar
    :exec-args {:group-id "com.cnuernber"
                :artifact-id "tmdjs"
-               :version "1.004-SNAPSHOT"
+               :version "1.004"
                :sync-pom true
                :jar "target/tmdjs.jar"}}
   ;;deploy to clojars
@@ -55,7 +55,16 @@
    :exec-fn codox.main/-main
    :exec-args {:arg-paths [[:aliases :depstar :exec-args]]
                :description "Dataframe processing for ClojureScript"
+               :name "tmdjs"
                :metadata {:doc/format :markdown}
+               :google-analytics "G-CLH3CS7E1R"
+               :html {:transforms [[:head] [:append [:script {:async true
+                                                              :src "https://www.googletagmanager.com/gtag/js?id=G-CLH3CS7E1R"}]]
+                                   [:head] [:append [:script "window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-CLH3CS7E1R');"]]]}
                :themes [:rdash]
                :language :clojurescript
                :source-paths ["src"]
