@@ -1,8 +1,8 @@
 {:paths ["src"]
  ;;We serialize datasets to transit-json
  :deps {com.cognitect/transit-cljs {:mvn/version "0.8.269"}
-        techascent/tech.ml.dataset {:mvn/version "6.061"}
-        tick/tick {:mvn/version "0.4.24-alpha"}
+        techascent/tech.ml.dataset {:mvn/version "6.071"}
+        tick/tick {:mvn/version "0.4.32"}
         com.cognitect/transit-clj {:mvn/version "1.0.324"}}
  :aliases
  {:dev
@@ -21,7 +21,7 @@
    :exec-fn hf.depstar/jar
    :exec-args {:group-id "com.cnuernber"
                :artifact-id "tmdjs"
-               :version "1.005"
+               :version "1.006"
                :sync-pom true
                :jar "target/tmdjs.jar"}}
   ;;deploy to clojars

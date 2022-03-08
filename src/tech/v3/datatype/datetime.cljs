@@ -1,9 +1,10 @@
 (ns tech.v3.datatype.datetime
   "Minimal API for converting dealing with instants and local dates.  Please see
   juxt/tick for a more thorough treatment."
-  (:require [java.time :refer [LocalDate Instant]]
-            [tech.v3.datatype.protocols :as dt-proto]))
-
+  (:require  [cljc.java-time.local-date :as local-date]
+             [cljc.java-time.instant :as instant]
+             [java.time :refer [LocalDate Instant]]
+             [tech.v3.datatype.protocols :as dt-proto]))
 
 (extend-protocol dt-proto/PDatatype
   LocalDate
@@ -20,26 +21,26 @@
 
 
 (defn local-date
-  [] (.now LocalDate))
+  [] (local-date/now))
 
 
 (defn local-date->epoch-days
-  [^LocalDate ld]
-  (.toEpochDay ld))
+  [ld]
+  (local-date/to-epoch-day ld))
 
 
 (defn epoch-days->local-date
   [ed]
-  (.ofEpochDay LocalDate ed))
+  (local-date/of-epoch-day ed))
 
 
 (defn instant
-  [] (.now Instant))
+  [] (instant/now))
 
 
 (defn epoch-milliseconds->instant
-  [em] (.ofEpochMilli Instant em))
+  [em] (instant/of-epoch-milli em))
 
 
 (defn instant->epoch-milliseconds
-  [^Instant in] (.toEpochMilli in))
+  [in] (instant/to-epoch-milli in))
