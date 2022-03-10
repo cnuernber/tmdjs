@@ -347,8 +347,11 @@ Options may be provided in the dataset metadata or may be provided
 as an options map.  The options map overrides the dataset metadata.
 
 
-  * `:print-index-range` - The set of indexes to print.  Defaults to:
-    (range *default-table-row-print-length*)
+  * `:print-index-range` - The set of indexes to print.  If an integer then
+     is interpreted according to `:print-style`.  Defaults to the integer 10.
+  * `:print-style` - Defaults to :first-last.  Options are #{:first-last :first :last}.  In
+     the case `:print-index-range` is an integer and the dataset has more than that number of
+     rows prints the first N/2 and last N/2 rows or the first N or last N rows.
   * `:print-line-policy` - defaults to `:repl` - one of:
      - `:repl` - multiline table - default nice printing for repl
      - `:markdown` - lines delimited by <br>
@@ -357,11 +360,28 @@ as an options map.  The options map overrides the dataset metadata.
   * `:print-column-types?` - show/hide column datatypes."
   [col-ary & [options]]
   (when (seq col-ary)
-    (let [print-index-range (get options :print-index-range (range 25))
-          print-line-policy (get options :print-line-policy :repl)
+    (let [print-line-policy (get options :print-line-policy :repl)
           print-column-max-width (get options :print-column-max-width 32)
           print-column-types? (get options :print-column-types? false)
-          col-ary (mapv #(ds-proto/-select-rows % print-index-range) col-ary)
+          n-rows (count (first col-ary))
+          index-range (get options :print-index-range (min n-rows 10))
+          print-style (when (number? index-range) (get options :print-style :first-last))
+          [index-range ellipses?] (if (number? index-range)
+                                    (case print-style
+                                      :first-last
+                                      (if (> n-rows (long index-range))
+                                        (let [start-n (quot (long index-range) 2)
+                                              end-start (dec (- n-rows start-n))]
+                                          [(vec (concat (range start-n)
+                                                        (range end-start n-rows)))
+                                           true])
+                                        [(range n-rows) false])
+                                      :first
+                                      [(range (min index-range n-rows)) false]
+                                      :last
+                                      [(range (max 0 (- n-rows (long index-range))) n-rows) false])
+                                    [index-range false])
+          col-ary (mapv #(ds-proto/-select-rows % index-range) col-ary)
           cnames (map (comp :name meta) col-ary)
           column-names (map #(when % (str %)) cnames)
           column-types (map #(str (when print-column-types? (:datatype (meta %))))
@@ -371,8 +391,16 @@ as an options map.  The options map overrides the dataset metadata.
                                 print-line-policy
                                 print-column-max-width)
                               col-ary)
-
-          n-rows (long (count (first col-ary)))
+          string-columns (if ellipses?
+                           (let [insert-pos (quot (dtype/ecount index-range) 2)]
+                             (->> string-columns
+                                  (map (fn [str-col]
+                                         (vec (concat (take insert-pos str-col)
+                                                      [["..."]]
+                                                      (drop insert-pos str-col)))))))
+                           string-columns)
+          ;;reset n-rows to be correctly shortened n-rows
+          n-rows (count (first string-columns))
           row-heights (dtype/make-container :int32 (repeat n-rows 1))
           column-widths
           (->> string-columns
@@ -413,6 +441,7 @@ as an options map.  The options map overrides the dataset metadata.
                               spacers (map dtype/elemwise-datatype
                                            col-ary))
                       ["|"])))
+      #_(println (mapv count string-columns) n-rows (vec (first string-columns)))
       (dotimes [idx n-rows]
        (let [row-height (long (nth row-heights idx))]
          (dotimes [inner-idx row-height]
