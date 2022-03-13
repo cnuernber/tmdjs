@@ -241,8 +241,10 @@ cljs.user> (->> (ds/->dataset {:a (range 100)
 
 (defn remove-missing
   "Remove missing rows from a dataset or column"
-  [ds]
-  (remove-rows ds (missing ds)))
+  ([ds]
+   (remove-rows ds (missing ds)))
+  ([ds colname]
+   (remove-rows ds (missing (column ds colname)))))
 
 
 (defn select-missing

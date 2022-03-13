@@ -80,6 +80,14 @@ cljs.user> (argops/argsort nil  ;;no compare fn
    (argsort nil nil data)))
 
 
+(defn numeric-truthy
+  [val]
+  (if (number? val)
+    (and (not (js/isNaN val))
+         (not= 0 val))
+    val))
+
+
 (defn argfilter
   "Return an array of indexes that pass the filter."
   ([pred data]
@@ -98,10 +106,10 @@ cljs.user> (argops/argsort nil  ;;no compare fn
              n-data (count data)]
          (if-let [data (dt-base/as-agetable data)]
            (dotimes [idx n-data]
-             (when (pred (aget data idx))
+             (when (numeric-truthy (pred (aget data idx)))
                (dt-proto/-add indexes idx)))
            (dotimes [idx n-data]
-             (when (pred (-nth data idx))
+             (when (numeric-truthy (pred (-nth data idx)))
                (dt-proto/-add indexes idx))))
          indexes))))
   ;;In this case the data itself must be truthy.
@@ -111,7 +119,7 @@ cljs.user> (argops/argsort nil  ;;no compare fn
          n-data (count data)
          indexes (dt-list/make-list :int32)]
      (dotimes [idx n-data]
-       (when (-nth data idx)
+       (when (numeric-truthy (-nth data idx))
          (dt-proto/-add indexes idx)))
      indexes)))
 

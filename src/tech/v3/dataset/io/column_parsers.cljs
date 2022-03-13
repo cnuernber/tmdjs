@@ -26,10 +26,13 @@
 
 (defn- missing?
   [val missing-val]
-  (or (nil? val)
-      (= val :tech.v3.dataset/missing)
-      (and (= val missing-val)
-           (not (boolean? val)))))
+  (cond
+    (number? val)
+    (js/isNaN val)
+    (nil? val) true
+    (= val :tech.v3.dataset/missing) true
+    (not (boolean? val))
+    (= val missing-val)))
 
 
 (defn fixed-type-parser

@@ -240,3 +240,21 @@
                 (->> (ds/sort-by-column ds :a nil {:nan-strategy :first})
                      :a
                      (vec))))))
+
+
+(deftest double-nan-missing
+  (let [ds (ds/->dataset {:a [0.0 js/NaN 1.0]
+                          :b [0 js/NaN 1.0]
+                          :c [:a nil :b]})]
+    (is (= #{1} (set (ds/missing (ds :a)))))
+    (is (= #{1} (set (ds/missing (ds :b)))))
+    (is (= #{1} (set (ds/missing (ds :c)))))
+    (is (= [1.0] (-> (ds/filter-column ds :a)
+                     (ds/column :a)
+                     (vec))))
+    (is (= [1.0] (-> (ds/filter-column ds :b)
+                   (ds/column :a)
+                   (vec))))
+    (is (= [0 1] (-> (ds/filter-column ds :c)
+                     (ds/column :a)
+                     (vec))))))
