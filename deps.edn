@@ -21,7 +21,7 @@
    :exec-fn hf.depstar/jar
    :exec-args {:group-id "com.cnuernber"
                :artifact-id "tmdjs"
-               :version "1.008"
+               :version "1.009"
                :sync-pom true
                :jar "target/tmdjs.jar"}}
   ;;deploy to clojars

@@ -389,12 +389,12 @@
   (-rest  [array] (dt-base/sub-buffer array 1 (dec (count buf))))
   IFn
   (-invoke [array n]
-    (nth-impl n (count array) nil #(byte->boolean (nth %1 %2)) array))
+    (nth-impl n (count buf) nil #(byte->boolean (nth %1 %2)) buf))
   IIndexed
   (-nth [array n]
-    (nth-impl n (count array) ::exception #(byte->boolean (nth %1 %2)) array))
+    (nth-impl n (count buf) ::exception #(byte->boolean (nth %1 %2)) buf))
   (-nth [array n not-found]
-    (nth-impl n (count array) not-found #(byte->boolean (nth %1 %2)) array)))
+    (nth-impl n (count buf) not-found #(byte->boolean (nth %1 %2)) buf)))
 
 
 (defn make-boolean-array

@@ -258,3 +258,8 @@
     (is (= [0 1] (-> (ds/filter-column ds :c)
                      (ds/column :a)
                      (vec))))))
+
+
+(deftest boolean-containers
+  (let [data (dtype/make-container :boolean [true false true])]
+    (is (= false (data 1)))))
