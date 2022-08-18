@@ -197,7 +197,8 @@
                prev-offset (long (if (> prev-idx -1)
                                    (.readLong offsets prev-idx)
                                    0))]
-           (Text. (.substring buffer prev-offset (- (.readLong offsets prev-idx) prev-offset))))))))
+           (Text. (.substring buffer prev-offset (.readLong offsets idx)
+                              prev-offset)))))))
 
 
 (defn data->dataset
