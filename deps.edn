@@ -1,7 +1,7 @@
 {:paths ["src"]
  ;;We serialize datasets to transit-json
  :deps {com.cognitect/transit-cljs {:mvn/version "0.8.269"}
-        techascent/tech.ml.dataset {:mvn/version "6.077"}
+        techascent/tech.ml.dataset {:mvn/version "6.094"}
         tick/tick {:mvn/version "0.4.32"}
         com.cognitect/transit-clj {:mvn/version "1.0.324"}}
  :aliases
@@ -21,7 +21,7 @@
    :exec-fn hf.depstar/jar
    :exec-args {:group-id "com.cnuernber"
                :artifact-id "tmdjs"
-               :version "1.010"
+               :version "1.012-SNAPSHOT"
                :sync-pom true
                :jar "target/tmdjs.jar"}}
   ;;deploy to clojars
@@ -71,6 +71,7 @@
                :output-path "docs"
                :source-uri "https://github.com/cnuernber/tmdjs/blob/master/{filepath}#L{line}"
                :namespaces [tech.v3.dataset
+                            tech.v3.dataset.node
                             tech.v3.libs.cljs-ajax
                             tech.v3.datatype
                             tech.v3.datatype.functional

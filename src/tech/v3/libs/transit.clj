@@ -3,6 +3,7 @@
   (:require [tech.v3.dataset :as ds]
             [tech.v3.dataset.impl.dataset :as ds-impl]
             [tech.v3.dataset.io :as ds-io]
+            [tech.v3.dataset.dynamic-int-list :as int-list]
             [tech.v3.io :as io]
             [tech.v3.datatype :as dtype]
             [tech.v3.datatype.errors :as errors]
@@ -14,7 +15,9 @@
             [cognitect.transit :as t])
   (:import [tech.v3.dataset.impl.dataset Dataset]
            [tech.v3.dataset.impl.column Column]
+           [tech.v3.dataset Text]
            [java.nio ByteBuffer ByteOrder]
+           [java.nio.charset StandardCharsets]
            [java.util Base64 HashMap]
            [java.time LocalDate Instant]))
 
@@ -27,7 +30,7 @@
       (.order ByteOrder/LITTLE_ENDIAN)))
 
 (defn numeric-data->b64
-  [^Column col]
+  [col]
   (let [src-data (dtype/->reader col)
         n-elems (count col)
         ^ByteBuffer bbuf
@@ -77,7 +80,7 @@
         indexes (dtype/make-list :int32)
         seen (HashMap.)]
     (dotimes [idx (count col)]
-      (let [strval (or (col idx) "")
+      (let [strval (str (or (col idx) ""))
             idx (.computeIfAbsent seen strval (reify java.util.function.Function
                                                 (apply [this arg]
                                                   (let [retval (count strdata)]
@@ -86,6 +89,22 @@
         (.add indexes idx)))
     {:strtable (vec strdata)
      :indexes (numeric-data->b64 indexes)}))
+
+
+;;The assumption here is that transit has already optimized a vector or strings.
+(defn text-col->data
+  [col]
+  (let [offsets (int-list/dynamic-int-list 0)
+        data (StringBuilder.)
+        n-elems (dtype/ecount col)]
+    (dotimes [idx n-elems]
+      (let [next-data (str (or (col idx) ""))]
+        (.append data next-data)
+        (.addLong offsets (.length data))))
+    (let [offbuf (dtype/as-concrete-buffer offsets)]
+      {:offset-dtype (dtype/elemwise-datatype offbuf)
+       :offsets (numeric-data->b64 offbuf)
+       :buffer (.toString data)})))
 
 
 (defn obj-col->numeric-b64
@@ -113,6 +132,8 @@
                                              (if (col idx) 1 0)))
        (= :string col-dt)
        (string-col->data col)
+       (= :text col-dt)
+       (text-col->data col)
        (#{:packed-local-date :local-date} col-dt)
        (obj-col->numeric-b64 col :int32 dtype-dt/local-date->days-since-epoch)
        (#{:packed-instant :instant} col-dt)
@@ -165,6 +186,20 @@
     (dtype/make-reader :string (count indexes) (strdata (indexes idx)))))
 
 
+(defn text-data->coldata
+  [{:keys [offsets buffer offset-dtype]}]
+  (let [offsets (dtype/->buffer (b64->numeric-data offsets offset-dtype))
+        n-elems (dtype/ecount offsets)
+        buffer (str buffer)]
+    (-> (dtype/make-reader
+         :text n-elems
+         (let [prev-idx (unchecked-dec idx)
+               prev-offset (long (if (> prev-idx -1)
+                                   (.readLong offsets prev-idx)
+                                   0))]
+           (Text. (.substring buffer prev-offset (- (.readLong offsets prev-idx) prev-offset))))))))
+
+
 (defn data->dataset
   [{:keys [columns] :as ds-data}]
   (errors/when-not-errorf
@@ -189,6 +224,8 @@
                                                        false true)))
                                 (= :string dtype)
                                 (str-data->coldata data)
+                                (= :text dtype)
+                                (text-data->coldata data)
                                 (= :local-date dtype)
                                 (->> (b64->numeric-data data :int32)
                                      (dtype/emap dtype-dt/days-since-epoch->local-date
@@ -258,7 +295,9 @@
                    :e (repeat 4 [1 2 3])
                    :f (repeat 5 (dtype-dt/local-date))
                    :g (repeat 5 (dtype-dt/instant))
-                   :h [true false true true false]}))
+                   :h [true false true true false]
+                   :i (repeat 5 "text")}
+                  {:parser-fn {:i :text}}))
 
 
   (def test-data (vec (repeatedly 100000 #(hash-map :time (rand)

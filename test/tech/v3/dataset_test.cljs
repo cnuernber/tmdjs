@@ -1,6 +1,7 @@
 (ns tech.v3.dataset-test
   (:require [cljs.test :refer [deftest is run-tests]]
             [tech.v3.dataset :as ds]
+            [tech.v3.dataset.node :as ds-node]
             [tech.v3.datatype :as dtype]
             [tech.v3.datatype.functional :as dfn]
             [tech.v3.datatype.datetime :as dtype-dt]))
@@ -144,7 +145,7 @@
 
 
 (deftest stocks-test
-  (let [stocks (ds/transit-file->dataset "test/data/stocks.transit-json")
+  (let [stocks (ds-node/transit-file->dataset "test/data/stocks.transit-json")
         stock-agg (->> (ds/group-by-column stocks :symbol)
                        (map (fn [[k v]]
                               [k (-> (dfn/mean (v :price))
@@ -263,3 +264,10 @@
 (deftest boolean-containers
   (let [data (dtype/make-container :boolean [true false true])]
     (is (= false (data 1)))))
+
+
+(deftest text-test
+  (let [text-ds (ds-node/transit-file->dataset "test/data/text.transit-json")]
+    ;;text data gets changed into string data on the client side as the cljs dataset
+    ;;doesn't have a text datatype.
+    (is (= ["text" "text" "text" "text" "text"] (text-ds :i)))))

@@ -846,6 +846,23 @@ cljs.user> (ds/head (ds/row-map stocks (fn [row]
      :indexes (numeric-data->b64 indexes)}))
 
 
+(defn- text-col->data
+  [col]
+  (let [n-elems (count col)
+        offsets (dtype/make-container :int8 (count col))
+        aget-off (dtype/as-agetable offsets)
+        buffer (loop [idx 0
+                      buffer ""]
+                 (if (< idx n-elems)
+                   (let [newb (.concat buffer (or (col idx) ""))]
+                     (aset offsets idx (.length newb))
+                     (recur (inc idx) newb))
+                   buffer))]
+    {:offset-datatype :int32
+     :offsets (numeric-data->b64 offsets)
+     :buffer buffer}))
+
+
 (defn- obj-col->numeric-b64
   [col dtype convert-fn]
   (-> (dtype/emap #(if % (convert-fn %) 0) dtype col)
@@ -868,6 +885,8 @@ cljs.user> (ds/head (ds/row-map stocks (fn [row]
        (numeric-data->b64 (dtype/make-container :uint8 (ds-proto/-column-buffer col)))
        (= :string col-dt)
        (string-col->data col)
+       (= :text col-dt)
+       (text-col->data col)
        (= :local-date col-dt)
        (obj-col->numeric-b64 col :int32 dtype-dt/local-date->epoch-days)
        (= :instant col-dt)
@@ -913,6 +932,18 @@ cljs.user> (ds/head (ds/row-map stocks (fn [row]
     coldata))
 
 
+(defn- text-data->coldata
+  [{:keys [buffer offsets offset-dtype] :as cdata}]
+  (let [offsets (b64->numeric-data offsets offset-dtype)
+        n-elems (count offsets)
+        coldata (dtype/make-container :string n-elems)
+        agetable (dtype/as-agetable coldata)]
+    (dotimes [idx n-elems]
+      (let [prev-off (if (= idx 0) 0 (nth offsets (dec idx)))]
+        (aset agetable idx (.substring buffer prev-off (nth offsets idx)))))
+    coldata))
+
+
 (defn data->column
   "Transform data produced via column->data into a column"
   [{:keys [metadata missing data]}]
@@ -929,6 +960,8 @@ cljs.user> (ds/head (ds/row-map stocks (fn [row]
                         (arrays/make-boolean-array (b64/toByteArray data))
                         (= :string dtype)
                         (str-data->coldata data)
+                        (= :text dtype)
+                        (text-data->coldata data)
                         (= :local-date dtype)
                         (->> (b64->numeric-data data :int32)
                              (dtype/emap dtype-dt/epoch-days->local-date :local-date))
@@ -984,14 +1017,3 @@ cljs.user> (ds/head (ds/row-map stocks (fn [row]
   (let [reader (t/reader (or format :json)
                          {:handlers (merge (transit-read-handler-map) handlers)})]
     (.read reader json-data)))
-
-
-(defn transit-file->dataset
-  "Given a file of transit data return a dataset.  This only works on Node."
-  [fname]
-  (let [fs (js/require "fs")]
-    ;;returns buffer
-    (-> (.readFileSync fs fname)
-        ;;utf-8 encoded string
-        (.toString)
-        (transit-str->dataset))))
