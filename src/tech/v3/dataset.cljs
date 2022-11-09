@@ -78,6 +78,7 @@ cljs.user> (-> (ds/->dataset {:a (range 100)
 
 (defn- parse-mapseq
   [options data]
+
   (let [{:keys [parser-fn parse-map*]} (options->parser-fn options)]
     (->> data
          (map-indexed
@@ -139,6 +140,57 @@ cljs.user> (->> (ds/->dataset {:a (range 100)
    (->dataset data options))
   ([data]
    (->dataset data)))
+
+
+(defn mapseq-parser
+  "Return a clojure function that when called with one arg that arg must be the next map
+  to add to the dataset.  When called with no args returns the current dataset.  This can be
+  used to efficiently transform a stream of maps into a dataset while getting intermediate
+  datasets during the parse operation.
+
+Options are the same for [[->dataset]].
+
+```clojure
+cljs.user> (def pfn (ds/mapseq-parser nil))
+#'cljs.user/pfn
+cljs.user> (pfn {:a 1 :b 2})
+nil
+cljs.user> (pfn {:a 1 :b 2})
+nil
+cljs.user> (pfn {:a 2 :c 3})
+nil
+cljs.user> (pfn)
+#dataset[unnamed [3 3]
+| :a |  :b |  :c |
+|---:|----:|----:|
+|  1 |   2 | NaN |
+|  1 |   2 | NaN |
+|  2 | NaN |   3 |]
+cljs.user> (pfn {:a 3 :d 4})
+nil
+cljs.user> (pfn {:a 5 :c 6})
+nil
+cljs.user> (pfn)
+#dataset[unnamed [5 4]
+| :a |  :b |  :c |  :d |
+|---:|----:|----:|----:|
+|  1 |   2 | NaN | NaN |
+|  1 |   2 | NaN | NaN |
+|  2 | NaN |   3 | NaN |
+|  3 | NaN | NaN |   4 |
+|  5 | NaN |   6 | NaN |]
+```"
+  ([options]
+   (let [{:keys [parser-fn parse-map*]} (options->parser-fn options)
+         idxvar (volatile! -1)]
+     (fn
+       ([data]
+        (let [rowidx (vswap! idxvar inc)]
+          (doseq [[k v] data]
+            (let [parser (parser-fn k)]
+              (col-parsers/-add-value! parser rowidx v)))))
+       ([] (parse-map->dataset @parse-map* options)))))
+  ([] (mapseq-parser nil)))
 
 
 (defn dataset?
