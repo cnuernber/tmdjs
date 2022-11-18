@@ -50,9 +50,9 @@ cljs.user> (time (dotimes [idx 100]
 nil
 ```
 
-Transducers are fast - after looking at this pathway we cound it
-pays a lot for each nth call.  The datatype library has a way
-to get the fastest access available for a given container.  Columns overload
+Transducers are fast - after looking at this pathway we found the
+`nth` call is relatively expensive.  The datatype library has a way
+to get the fastest nth-like access available for a given container.  Columns overload
 this pathway such that if there are no missing they use the fastest
 access for their buffer, else they have to wrap a missing check.  Regardless,
 this gets us a solid improvement:
