@@ -70,6 +70,7 @@
                :language :clojurescript
                :source-paths ["src"]
                :output-path "docs"
+               :doc-paths ["topics"]
                :source-uri "https://github.com/cnuernber/tmdjs/blob/master/{filepath}#L{line}"
                :namespaces [tech.v3.dataset
                             tech.v3.dataset.node
