@@ -4,6 +4,7 @@
 
 * [API Documentation](https://cnuernber.github.io/tmdjs/)
 * For those of you dealing with a stream of maps - [mapseq-parser](https://cnuernber.github.io/tmdjs/tech.v3.dataset.html#var-mapseq-parser).
+* Please see our topic on [Reductions](https://cnuernber.github.io/tmdjs/Reductions.html).
 
 Minimal cljs implementation of [tech.v3.datatype](https://cnuernber.github.io/tmdjs/tech.v3.datatype.html),
 [tech.v3.datatype.functional](https://cnuernber.github.io/tmdjs/tech.v3.datatype.functional.html),
