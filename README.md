@@ -3,6 +3,7 @@
 [![Clojars Project](https://img.shields.io/clojars/v/com.cnuernber/tmdjs.svg)](https://clojars.org/com.cnuernber/tmdjs)
 
 * [API Documentation](https://cnuernber.github.io/tmdjs/)
+* For those of you dealing with a stream of maps - [mapseq-parser](https://cnuernber.github.io/tmdjs/tech.v3.dataset.html#var-mapseq-parser).
 
 Minimal cljs implementation of [tech.v3.datatype](https://cnuernber.github.io/tmdjs/tech.v3.datatype.html),
 [tech.v3.datatype.functional](https://cnuernber.github.io/tmdjs/tech.v3.datatype.functional.html),

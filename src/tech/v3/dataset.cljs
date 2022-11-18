@@ -478,6 +478,14 @@ cljs.user> (pfn)
     (select-rows ds passidx)))
 
 
+(defn- non-empty-col
+  [col]
+  (when-not (or (nil? col)
+                (= (count col)
+                   (count (missing col))))
+    col))
+
+
 (defn concat
   "This is a copying concatenation so the result will be realized.  Missing columns
   will be filled in with missing values."
@@ -496,7 +504,7 @@ cljs.user> (pfn)
                                ;;force missing column errors right here.
                                (map (fn [colname]
                                       (->> ds-list
-                                           (map #(% colname))
+                                           (map #(non-empty-col (% colname)))
                                            (remove nil?)
                                            (map dtype/elemwise-datatype)
                                            (reduce (fn [lhs-dt rhs-dt]
@@ -510,7 +518,7 @@ cljs.user> (pfn)
                          (dtype/ensure-capacity! container n-rows)
                          (doseq [ds ds-list]
                            (let [offset (count container)]
-                             (if-let [ds-col (ds colname)]
+                             (if-let [ds-col (non-empty-col (ds colname))]
                                (do
                                  (dtype/iterate! #(.add missing (+ offset %))
                                                  (ds-proto/-missing ds-col))

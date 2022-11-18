@@ -429,6 +429,8 @@
   (-set-value! [item idx data]
     (dt-proto/-set-value! buf idx data)
     item)
+  dt-proto/PFastAccessor
+  (->fast-nth [this] (dt-proto/->fast-nth buf))
   dt-proto/PSetConstant
   (-set-constant! [item offset elem-count data]
     (dt-proto/-set-constant! buf offset elem-count data)

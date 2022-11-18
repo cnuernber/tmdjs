@@ -80,6 +80,14 @@
   (dt-base/as-agetable item))
 
 
+(defn ->fast-nth
+  "Given an arbitrary container, return the fastest idx->value accessor possible.
+  If the item is agetable, this just wraps aget.  Else, unless otherwise instructed,
+  it will wrap #(-nth item %)."
+  [item]
+  (dt-proto/->fast-nth item))
+
+
 (defn as-datatype-accurate-agetable
   "Only reduce to an aget-able item of the datatypes match.  This avoids
   throwing away js array wrappers that may do more checking and that can

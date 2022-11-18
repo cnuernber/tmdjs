@@ -87,41 +87,97 @@ cljs.user> (argops/argsort nil  ;;no compare fn
          (not= 0 val))
     val))
 
+(deftype IndexReducer [list
+                       ^:unsynchronized-mutable start
+                       ^:unsynchronized-mutable last-val
+                       ^:unsynchronized-mutable increment]
+  dt-proto/PListLike
+  (-add [this elem]
+    (if (= start -1)
+      (set! start elem)
+      (let [new-inc (- elem last-val)]
+        (cond
+          (nil? increment)
+          (set! increment new-inc)
+          (js/isNaN increment)
+          (dt-proto/-add list elem)
+          :else
+          (when (not= increment new-inc)
+            (reduce #(dt-proto/-add %1 %2)
+                    list
+                    (range start (+ last-val increment) increment))
+            (dt-proto/-add list elem)
+            (set! increment js/NaN)))))
+    (set! last-val elem))
+  (-add-all [this container]
+    (reduce (fn [l c]
+              (dt-proto/-add l c)
+              l)
+            this
+            container))
+  (-ensure-capacity [this c] this)
+  IDeref
+  (-deref [this]
+    (cond
+      (= start -1)
+      (range 0)
+      (js/isNaN increment)
+      list
+      :else
+      (if (nil? increment)
+        (range start (inc start))
+        (range start (+ last-val (or increment (- last-val start))) increment)))))
+
+
+(defn- filter-rfn
+  ([pred data]
+   (if-let [adata (dt-base/as-agetable data)]
+     (fn [acc idx]
+       (when (numeric-truthy (pred (aget adata idx)))
+         (dt-proto/-add acc idx))
+       acc)
+     (fn [acc idx]
+       (when (numeric-truthy (pred (nth data idx)))
+         (dt-proto/-add acc idx))
+       acc)))
+  ([data]
+   (if-let [adata (dt-base/as-agetable data)]
+     (fn [acc idx]
+       (when (numeric-truthy (aget adata idx))
+         (dt-proto/-add acc idx))
+       acc)
+     (fn [acc idx]
+       (when (numeric-truthy (nth data idx))
+         (dt-proto/-add acc idx))
+       acc))))
 
 (defn argfilter
   "Return an array of indexes that pass the filter."
-  ([pred data]
+  ([pred options data]
    (let [data (dt-base/ensure-indexable data)
          n-data (count data)]
-     (case :list-filter
+     (case (get options :method :index-reducer)
        :ary-filter
        (let [indexes (dt-cmc/make-container :int32 (range n-data))
              idx-ary (dt-base/as-typed-array indexes)]
          (if-let [data (dt-base/as-agetable data)]
            (.filter idx-ary #(boolean (pred (aget data %))))
-           (.filter idx-ary #(boolean (pred (nth data %)))))
-         indexes)
+           (.filter idx-ary #(boolean (pred (nth data %))))))
        :list-filter
-       (let [indexes (dt-list/make-list :int32)
-             n-data (count data)]
-         (if-let [data (dt-base/as-agetable data)]
-           (dotimes [idx n-data]
-             (when (numeric-truthy (pred (aget data idx)))
-               (dt-proto/-add indexes idx)))
-           (dotimes [idx n-data]
-             (when (numeric-truthy (pred (-nth data idx)))
-               (dt-proto/-add indexes idx))))
-         indexes))))
+       (reduce (filter-rfn pred data) (dt-list/make-list :int32) (range (count data)))
+       :index-reducer
+       (-> (reduce (filter-rfn pred data)
+                   (IndexReducer. (dt-list/make-list :int32) -1 -1 nil)
+                   (range (count data)))
+           (deref)))))
+  ([pred data] (argfilter pred nil data))
   ;;In this case the data itself must be truthy.
   ;;Avoids the use of an unnecessary predicate fn
   ([data]
-   (let [data (dt-base/ensure-indexable data)
-         n-data (count data)
-         indexes (dt-list/make-list :int32)]
-     (dotimes [idx n-data]
-       (when (numeric-truthy (-nth data idx))
-         (dt-proto/-add indexes idx)))
-     indexes)))
+   (-> (reduce (filter-rfn data)
+               (IndexReducer. (dt-list/make-list :int32) -1 -1 nil)
+               (range (count data)))
+       (deref))))
 
 
 (defn arggroup

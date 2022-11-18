@@ -128,3 +128,17 @@
   (-set-and [lhs rhs])
   (-set-and-not [lhs rhs])
   (-set-offset [this off]))
+
+
+(defprotocol PFastAccessor
+  (->fast-nth [item]))
+
+(extend-protocol PFastAccessor
+  object
+  (->fast-nth [item]
+    (if (-convertible-to-agetable? item)
+      (let [ai (->agetable item)]
+        #(aget ai %))
+      #(nth item %)))
+  array
+  (->fast-nth [item] #(aget item %)))

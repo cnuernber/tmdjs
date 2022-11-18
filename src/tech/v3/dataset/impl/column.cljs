@@ -161,6 +161,20 @@
         (when (.has missing (+ off idx))
           (.add new-missing idx)))
       (new-column new-buf new-missing (meta col) numeric?)))
+  dt-proto/PFastAccessor
+  (->fast-nth [this]
+    (let [buf-nth (dt-proto/->fast-nth buf)]
+      (if (== 0 (count missing))
+        buf-nth
+        (if numeric?
+          (fn [n]
+            (if (.has missing )
+              ##NaN
+              (buf-nth n)))
+          (fn [n]
+            (if (.has missing n)
+              nil
+              (buf-nth n)))))))
   ds-proto/PColumn
   (-is-column? [_this] true)
   (-column-buffer [_this] buf)
