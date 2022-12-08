@@ -238,7 +238,7 @@
                                     :else
                                     (dtype/make-container dtype data))
                                  :name            (:name metadata)})))
-         (ds-impl/new-dataset {:dataset-name (or (:name ds-meta) (:dataset-name ds-meta))} ds-meta))))
+         (ds-impl/new-dataset {:dataset-name (:name ds-meta)} ds-meta))))
 
 (comment
   ;; verify that metadata is preserved
