@@ -10,8 +10,10 @@
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.packing :as packing]
             [tech.v3.datatype.datetime :as dtype-dt]
+            [tech.v3.datatype.array-buffer :as abuf]
             [tech.v3.datatype.bitmap :as bitmap]
             [com.github.ztellman.primitive-math :as pmath]
+            [ham-fisted.api :as hamf]
             [cognitect.transit :as t])
   (:import [tech.v3.dataset.impl.dataset Dataset]
            [tech.v3.dataset.impl.column Column]
@@ -87,7 +89,7 @@
                                                     (.add strdata strval)
                                                     retval))))]
         (.add indexes idx)))
-    {:strtable (vec strdata)
+    {:strtable (hamf/object-array strdata)
      :indexes (numeric-data->b64 indexes)}))
 
 
@@ -121,7 +123,7 @@
   [col]
   (let [col-dt (packing/unpack-datatype (dtype/elemwise-datatype col))]
     {:metadata (assoc (meta col) :datatype col-dt)
-     :missing (vec (bitmap/bitmap->efficient-random-access-reader
+     :missing (vec (bitmap/->random-access
                     (ds/missing col)))
      :data
      (cond
@@ -228,13 +230,13 @@
                                     (= :text dtype)
                                     (text-data->coldata data)
                                     (= :local-date dtype)
-                                    (->> (b64->numeric-data data :int32)
-                                         (dtype/emap dtype-dt/days-since-epoch->local-date
-                                                     :local-date))
+                                    (-> (b64->numeric-data data :int32)
+                                        (dtype/->array-buffer)
+                                        (abuf/set-datatype :packed-local-date))
                                     (= :instant dtype)
-                                    (->> (b64->numeric-data data :int64)
-                                         (dtype/emap dtype-dt/milliseconds-since-epoch->instant
-                                                     :instant))
+                                    (-> (b64->numeric-data data :int64)
+                                        (dtype/->array-buffer)
+                                        (abuf/set-datatype :packed-instant))
                                     :else
                                     (dtype/make-container dtype data))
                                  :name            (:name metadata)})))
@@ -321,7 +323,13 @@
     (defn t->file
       [ds fname]
       (with-open [outs (io/output-stream! fname)]
-        (dataset->transit ds outs))))
+        (dataset->transit ds outs)))
+
+    (defn file->t
+      [fname]
+      (with-open [ins (io/input-stream fname)]
+        (transit->dataset ins)))
+    )
 
   (time (t->file test-data "mapseq.transit-json"))
   ;; 1027ms, 6.3MB raw, 1.9MB gzipped
@@ -333,7 +341,8 @@
     (def stocks (ds/->dataset "https://github.com/techascent/tech.ml.dataset/raw/master/test/data/stocks.csv" {:key-fn keyword}))
 
     (io/make-parents "test/data/stocks.transit-json")
-    (t->file stocks "test/data/stocks.transit-json"))
+    (t->file stocks "test/data/stocks.transit-json")
+    )
 
   (require '[tech.v3.datatype.functional :as dfn])
 
