@@ -202,42 +202,50 @@
 
 (defn data->dataset
   [{:keys [columns] :as ds-data}]
-  (errors/when-not-errorf
-   (and (:metadata ds-data) columns)
-   "Passed in data does not appear to have metadata or columns")
-  (->> (:columns ds-data)
-       (map
-        (fn [{:keys [metadata missing data]}]
-          (let [dtype (:datatype metadata)]
-            #:tech.v3.dataset{:metadata metadata
-                              :missing (bitmap/->bitmap missing)
-                              ;;do not re-scan data.
-                              :force-datatype? true
-                              :data
-                              (cond
-                                (casting/numeric-type? dtype)
-                                (b64->numeric-data data dtype)
-                                (= :boolean dtype)
-                                (let [ibuf (b64->numeric-data data :int8)]
-                                  (dtype/make-reader :boolean (count ibuf)
-                                                     (if (== 0 (unchecked-long (ibuf idx)))
-                                                       false true)))
-                                (= :string dtype)
-                                (str-data->coldata data)
-                                (= :text dtype)
-                                (text-data->coldata data)
-                                (= :local-date dtype)
-                                (->> (b64->numeric-data data :int32)
-                                     (dtype/emap dtype-dt/days-since-epoch->local-date
-                                                 :local-date))
-                                (= :instant dtype)
-                                (->> (b64->numeric-data data :int64)
-                                     (dtype/emap dtype-dt/milliseconds-since-epoch->instant
-                                                 :instant))
-                                :else
-                                (dtype/make-container dtype data))
-                              :name (:name metadata)})))
-       (ds-impl/new-dataset {} (:metadata ds-data))))
+  (let [ds-meta (:metadata ds-data)]
+    (errors/when-not-errorf
+      (and ds-meta columns)
+      "Passed in data does not appear to have metadata or columns")
+    (->> (:columns ds-data)
+         (map
+           (fn [{:keys [metadata missing data]}]
+             (let [dtype (:datatype metadata)]
+               #:tech.v3.dataset{:metadata metadata
+                                 :missing (bitmap/->bitmap missing)
+                                 ;;do not re-scan data.
+                                 :force-datatype? true
+                                 :data
+                                  (cond
+                                    (casting/numeric-type? dtype)
+                                    (b64->numeric-data data dtype)
+                                    (= :boolean dtype)
+                                    (let [ibuf (b64->numeric-data data :int8)]
+                                      (dtype/make-reader :boolean (count ibuf)
+                                                         (if (== 0 (unchecked-long (ibuf idx)))
+                                                           false true)))
+                                    (= :string dtype)
+                                    (str-data->coldata data)
+                                    (= :text dtype)
+                                    (text-data->coldata data)
+                                    (= :local-date dtype)
+                                    (->> (b64->numeric-data data :int32)
+                                         (dtype/emap dtype-dt/days-since-epoch->local-date
+                                                     :local-date))
+                                    (= :instant dtype)
+                                    (->> (b64->numeric-data data :int64)
+                                         (dtype/emap dtype-dt/milliseconds-since-epoch->instant
+                                                     :instant))
+                                    :else
+                                    (dtype/make-container dtype data))
+                                 :name            (:name metadata)})))
+         (ds-impl/new-dataset {:dataset-name (or (:name ds-meta) (:dataset-name ds-meta))} ds-meta))))
+
+(comment
+  ;; verify that metadata is preserved
+  (let [ds_a (ds/->dataset {:a [5]} {:parser-fn {:a :uint8} :dataset-name "keep-this-name"})
+        ds_b (-> ds_a dataset->data data->dataset)]
+    (and (= ds_a ds_b)
+         (= (meta ds_a) (meta ds_b)))))
 
 (def write-handlers {Dataset (t/write-handler "tech.v3.dataset" dataset->data)})
 (def read-handlers {"tech.v3.dataset" (t/read-handler data->dataset)})
