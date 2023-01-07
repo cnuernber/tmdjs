@@ -3,6 +3,7 @@
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.format-sequence :as fmt]
             [tech.v3.datatype.argtypes :as argtypes]
+            [ham-fisted.api :as hamf]
             [goog.object :as gobject]
             [clojure.string :as s])
   (:refer-clojure :exclude [clone counted? indexed?]))
@@ -134,7 +135,9 @@
 
 (defn integer-range?
   [item]
-  (instance? IntegerRange item))
+  (or (instance? IntegerRange item)
+      (and (instance? hamf/RangeType item)
+           (.isInteger ^JS item))))
 
 
 (defn iterate-range!

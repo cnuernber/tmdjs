@@ -7,7 +7,8 @@
             [tech.v3.datatype.arrays :as dt-arrays]
             [tech.v3.datatype.protocols :as dt-proto]
             [tech.v3.dataset.string-table :as strt]
-            [tech.v3.dataset.protocols :as ds-proto]))
+            [tech.v3.dataset.protocols :as ds-proto]
+            [ham-fisted.api :as hamf]))
 
 
 (defn datatype->missing-value
@@ -52,6 +53,9 @@
       (let [rstart (clamp rstart 0 (unchecked-dec n-rows))
             rend (clamp rend -1 n-rows)]
         (range rstart rend (aget rng "step"))))))
+
+
+(defn process-row-indexes [] )
 
 
 (declare new-column)
@@ -119,11 +123,24 @@
   (-reduce [this f]
     (if (== 0 (count missing))
       (-reduce buf f)
-      (dt-arrays/nth-reduce this f)))
+      (let [missing-value (if numeric? ##NaN nil)]
+        (reduce (hamf/indexed-accum-fn
+                 (fn [acc idx v]
+                   (if (.has missing idx)
+                     (f acc missing-value)
+                     (f acc v))))
+                buf))))
   (-reduce [this f start]
     (if (== 0 (count missing))
       (-reduce buf f start)
-      (dt-arrays/nth-reduce this f start)))
+      (let [missing-value (if numeric? ##NaN nil)]
+        (reduce (hamf/indexed-accum-fn
+                 (fn [acc idx v]
+                   (if (.has missing idx)
+                     (f acc missing-value)
+                     (f acc v))))
+                start
+                buf))))
   dt-proto/PElemwiseDatatype
   (-elemwise-datatype [_this] (dtype/elemwise-datatype buf))
   dt-proto/PDatatype

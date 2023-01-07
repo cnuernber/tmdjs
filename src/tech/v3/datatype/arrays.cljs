@@ -2,7 +2,8 @@
   (:require [tech.v3.datatype.protocols :as dt-proto]
             [tech.v3.datatype.base :as dt-base]
             [tech.v3.datatype.argtypes :as argtypes]
-            [tech.v3.datatype.casting :as casting])
+            [tech.v3.datatype.casting :as casting]
+            [ham-fisted.api :as hamf])
   (:refer-clojure :exclude [make-array]))
 
 (set! *unchecked-arrays* true)
@@ -406,7 +407,7 @@
 
 
 ;;Necessary to add an actual datatype to a js array and metadata to typed arrays
-(deftype TypedBuffer [buf elem-dtype metadata ^:unsynchronized-mutable hashcode]
+(deftype TypedBuffer [buf elem-dtype metadata]
   ICounted
   (-count [_item] (count buf))
   ICloneable
@@ -464,12 +465,9 @@
   ISequential
   IHash
   (-hash [_o]
-    (when-not hashcode
-      (set! hashcode
-            (if-let [aget-buf (dt-base/as-agetable buf)]
-              (hash-agetable aget-buf)
-              (hash-nthable buf))))
-    hashcode)
+    (if-let [aget-buf (dt-base/as-agetable buf)]
+      (hash-agetable aget-buf)
+      (hash-nthable buf)))
   IEquiv
   (-equiv [_this other]
     (if-let [aget-buf (dt-base/as-agetable buf)]
@@ -482,7 +480,7 @@
 (defn make-typed-buffer
   [buf & [dtype metadata]]
   (let [dtype (or dtype (dt-base/elemwise-datatype buf))]
-    (TypedBuffer. buf dtype metadata nil)))
+    (TypedBuffer. buf dtype metadata)))
 
 ;;Shorthand as this is very common
 (defn tbuf [item] (make-typed-buffer item))
@@ -543,18 +541,18 @@
           ;;arrays store their data as integer buffers.  Because the storage is different
           ;;than the presentation, those datatypes are not 'agetable' but because we
           ;;are just copying/reindexing data it is OK to use aget/aset.
-          dest-buf (or (dt-base/as-js-array retval) (dt-base/as-typed-array retval))]
-      (if-let [indexes (dt-base/as-agetable indexes)]
-        (if-let [buf (or (dt-base/as-js-array buf) (dt-base/as-typed-array buf))]
-          ;;buf is agetable
-          (dotimes [idx n-indexes]
-            (aset dest-buf idx (aget buf (aget indexes idx))))
-          ;;buf is not agetable
-          (dotimes [idx n-indexes]
-            (aset dest-buf idx (nth buf (aget indexes idx)))))
-        (if-let [buf (or (dt-base/as-js-array buf) (dt-base/as-typed-array buf))]
-          (dotimes [idx n-indexes]
-            (aset dest-buf idx (aget buf (nth indexes idx))))
-          (dotimes [idx n-indexes]
-            (aset dest-buf idx (nth buf (nth indexes idx))))))
+          dst-buf (or (dt-base/as-js-array retval) (dt-base/as-typed-array retval))]
+      (if-let [buf (or (dt-base/as-js-array buf) (dt-base/as-typed-array buf))]
+        (reduce (hamf/indexed-accum-fn
+                 (fn [acc dstidx idx]
+                   (aset acc dstidx (aget buf idx))
+                   acc))
+                dst-buf
+                indexes)
+        (reduce (hamf/indexed-accum-fn
+                 (fn [acc dstidx idx]
+                   (aset acc dstidx (-nth buf idx))
+                   acc))
+                dst-buf
+                indexes))
       retval)))

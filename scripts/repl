@@ -1,0 +1,4 @@
+#!/bin/bash
+
+
+clj -A:dev -M:cljs node-repl

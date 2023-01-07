@@ -39,65 +39,79 @@ cljs.user> (-> (ds/->dataset {:a (range 100)
             [tech.v3.dataset.impl.column :as col-impl]
             [base64-js :as b64]
             [cognitect.transit :as t]
+            [ham-fisted.api :as hamf]
+            [ham-fisted.lazy-noncaching :as lznc]
             [clojure.set :as set])
   (:refer-clojure :exclude [concat update filter sort-by group-by]))
 
 
 (defn- options->parser-fn
+  "Return a function of 2 arities.  If passed in 1 argument, return the parser for that
+  argument.  When passed 0 arguments, return a new dataset from the list of known parsers."
   [options]
-  (let [parse-map* (atom {})
+  (let [^JS parse-map (hamf/mut-map)
+        ^JS parsers (hamf/mut-list)
         key-fn (get options :key-fn identity)
-        opt-parse-fn (:parser-fn options)]
-    {:parser-fn
-     (fn [colname]
-       (let [colname (key-fn colname)]
-         (if-let [retval (@parse-map* colname)]
-           retval
-           (let [retval
-                 (cond
-                   (nil? opt-parse-fn)
-                   (col-parsers/promotional-object-parser colname)
-                   (keyword? opt-parse-fn)
-                   (col-parsers/fixed-type-parser colname opt-parse-fn)
-                   :else
-                   (if-let [parser-type (get opt-parse-fn colname)]
-                     (col-parsers/fixed-type-parser colname parser-type)
-                     (col-parsers/promotional-object-parser colname)))]
-             (swap! parse-map* assoc colname retval)
-             retval))))
-     :parse-map* parse-map*}))
+        opt-parse-fn (:parser-fn options)
+        afn (fn [colname]
+              (let [rv (cond
+                         (nil? opt-parse-fn)
+                         (col-parsers/promotional-object-parser colname)
+                         (keyword? opt-parse-fn)
+                         (col-parsers/fixed-type-parser colname opt-parse-fn)
+                         :else
+                         (if-let [parser-type (get opt-parse-fn colname)]
+                           (col-parsers/fixed-type-parser colname parser-type)
+                           (col-parsers/promotional-object-parser colname)))]
+                (.add parsers rv)
+                rv))]
+    (fn
+      ([colname] (.computeIfAbsent parse-map (key-fn colname) afn))
+      ([] (let [max-rc (apply max 0 (lznc/map count parsers))]
+            (ds-impl/new-dataset (select-keys options [:name :dataset-name])
+                                 (hamf/mapv #(col-parsers/-finalize % max-rc) parsers)))))))
 
 
-(defn- parse-map->dataset
-  [parse-map options]
-  (let [ary-data (vals parse-map)
-        max-rc (apply max 0 (map count ary-data))]
-    (ds-impl/new-dataset (select-keys options [:name :dataset-name])
-                         (map #(col-parsers/-finalize % max-rc) ary-data))))
+(defn mapseq-parser-rf
+  "Return a transduce-compatible sequence-of-maps parser"
+  [options]
+  (fn
+    ([]
+     (let [pfn (options->parser-fn options)
+           rfn (hamf/indexed-accum-fn
+                (fn [acc rowidx v]
+                  (reduce (fn [acc e]
+                            (col-parsers/-add-value! (pfn (-key e)) rowidx (-val e))
+                            acc)
+                          nil
+                          v)
+                  acc))]
+       (fn
+         ([acc v] (rfn acc v))
+         ([] (pfn)))))
+    ([acc] (acc))
+    ([acc v] (acc nil v) acc)))
 
 
-(defn- parse-mapseq
-  [options data]
-
-  (let [{:keys [parser-fn parse-map*]} (options->parser-fn options)]
-    (->> data
-         (map-indexed
-          (fn [rowidx data]
-            (doseq [[k v] data]
-              (let [parser (parser-fn k)]
-                (col-parsers/-add-value! parser rowidx v)))))
-         (doall))
-    (parse-map->dataset @parse-map* options)))
+(defn parse-mapseq
+  ([data] (parse-mapseq nil nil data))
+  ([xform data] (parse-mapseq xform nil data))
+  ([xform options data]
+   (if xform
+     (transduce xform (mapseq-parser-rf options) data)
+     (hamf/reduce-reducer (mapseq-parser-rf options) data))))
 
 
 (defn- parse-colmap
   "Much faster/easier pathway"
   [options data]
-  (let [{:keys [parser-fn parse-map*]} (options->parser-fn options)]
-    (doseq [[k v] data]
-      (let [parser (parser-fn k)]
-        (dtype/add-all! parser v)))
-    (parse-map->dataset @parse-map* options)))
+  (let [pfn (options->parser-fn options)]
+    (reduce (fn [acc e]
+              (dtype/add-all! (pfn (-key e)) (-val e))
+              acc)
+            nil
+            data)
+    (pfn)))
 
 
 (defn ->dataset
@@ -181,15 +195,11 @@ cljs.user> (pfn)
 |  5 | NaN |   6 | NaN |]
 ```"
   ([options]
-   (let [{:keys [parser-fn parse-map*]} (options->parser-fn options)
-         idxvar (volatile! -1)]
+   (let [rf (mapseq-parser-rf options)
+         acc (rf)]
      (fn
-       ([data]
-        (let [rowidx (vswap! idxvar inc)]
-          (doseq [[k v] data]
-            (let [parser (parser-fn k)]
-              (col-parsers/-add-value! parser rowidx v)))))
-       ([] (parse-map->dataset @parse-map* options)))))
+       ([data] (rf acc data))
+       ([] (rf acc)))))
   ([] (mapseq-parser nil)))
 
 

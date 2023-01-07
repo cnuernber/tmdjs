@@ -4,7 +4,8 @@
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.copy-make-container :as dt-cmc]
             [tech.v3.datatype.list :as dt-list]
-            [tech.v3.datatype.protocols :as dt-proto]))
+            [tech.v3.datatype.protocols :as dt-proto]
+            [ham-fisted.api :as hamf]))
 
 
 (defn argsort
@@ -91,8 +92,8 @@ cljs.user> (argops/argsort nil  ;;no compare fn
                        ^:unsynchronized-mutable start
                        ^:unsynchronized-mutable last-val
                        ^:unsynchronized-mutable increment]
-  dt-proto/PListLike
-  (-add [this elem]
+  Object
+  (accept [this elem]
     (if (= start -1)
       (set! start elem)
       (let [new-inc (- elem last-val)]
@@ -109,107 +110,61 @@ cljs.user> (argops/argsort nil  ;;no compare fn
             (dt-proto/-add list elem)
             (set! increment js/NaN)))))
     (set! last-val elem))
-  (-add-all [this container]
-    (reduce (fn [l c]
-              (dt-proto/-add l c)
-              l)
-            this
-            container))
-  (-ensure-capacity [this c] this)
   IDeref
   (-deref [this]
     (cond
       (= start -1)
       (range 0)
       (js/isNaN increment)
-      list
+      (dt-base/sub-buffer list 0 (dt-base/ecount list))
       :else
       (if (nil? increment)
-        (range start (inc start))
-        (range start (+ last-val (or increment (- last-val start))) increment)))))
+        (hamf/range start (inc start))
+        (hamf/range start (+ last-val (or increment (- last-val start))) increment)))))
 
 
-(defn- filter-rfn
-  ([pred data]
-   (if-let [adata (dt-base/as-agetable data)]
-     (fn [acc idx]
-       (when (numeric-truthy (pred (aget adata idx)))
-         (dt-proto/-add acc idx))
-       acc)
-     (fn [acc idx]
-       (when (numeric-truthy (pred (nth data idx)))
-         (dt-proto/-add acc idx))
-       acc)))
-  ([data]
-   (if-let [adata (dt-base/as-agetable data)]
-     (fn [acc idx]
-       (when (numeric-truthy (aget adata idx))
-         (dt-proto/-add acc idx))
-       acc)
-     (fn [acc idx]
-       (when (numeric-truthy (nth data idx))
-         (dt-proto/-add acc idx))
-       acc))))
+(defn index-reducer [] (IndexReducer. (dt-list/make-list :int32) -1 -1 nil))
+
 
 (defn argfilter
   "Return an array of indexes that pass the filter."
   ([pred options data]
-   (let [data (dt-base/ensure-indexable data)
-         n-data (count data)]
-     (case (get options :method :index-reducer)
-       :ary-filter
-       (let [indexes (dt-cmc/make-container :int32 (range n-data))
-             idx-ary (dt-base/as-typed-array indexes)]
-         (if-let [data (dt-base/as-agetable data)]
-           (.filter idx-ary #(boolean (pred (aget data %))))
-           (.filter idx-ary #(boolean (pred (nth data %))))))
-       :list-filter
-       (reduce (filter-rfn pred data) (dt-list/make-list :int32) (range (count data)))
-       :index-reducer
-       (-> (reduce (filter-rfn pred data)
-                   (IndexReducer. (dt-list/make-list :int32) -1 -1 nil)
-                   (range (count data)))
-           (deref)))))
+   (-> (reduce (hamf/indexed-accum-fn
+                (fn [acc idx v]
+                  (when (numeric-truthy (pred v))
+                    (.accept ^JS acc idx))
+                  acc))
+               (index-reducer)
+               data)
+       (deref)))
   ([pred data] (argfilter pred nil data))
   ;;In this case the data itself must be truthy.
   ;;Avoids the use of an unnecessary predicate fn
   ([data]
-   (-> (reduce (filter-rfn data)
-               (IndexReducer. (dt-list/make-list :int32) -1 -1 nil)
-               (range (count data)))
+   (-> (reduce (hamf/indexed-accum-fn
+                (fn [acc idx v]
+                  (when (numeric-truthy v)
+                    (.accept ^JS acc idx))
+                  acc))
+               (index-reducer)
+               data)
        (deref))))
 
 
 (defn arggroup
   "Return a map from value->indexes that hold that value."
   [data]
-  (let [data (dt-base/ensure-indexable data)
-        n-elems (count data)]
-    (if-let [data (dt-base/as-agetable data)]
-      (loop [idx 0
-             retval (transient {})]
-        (if (< idx n-elems)
-          (let [value (aget data idx)
-                dlist (get retval value)
-                has-dlist? (boolean dlist)
-                dlist (if has-dlist? dlist (dt-list/make-list :int32))]
-            (dt-proto/-add dlist idx)
-            (recur (unchecked-inc idx) (if has-dlist?
-                                         retval
-                                         (assoc! retval value dlist))))
-          (persistent! retval)))
-      (loop [idx 0
-             retval (transient {})]
-        (if (< idx n-elems)
-          (let [value (nth data idx)
-                dlist (get retval value)
-                has-dlist? (boolean dlist)
-                dlist (if has-dlist? dlist (dt-list/make-list :int32))]
-            (dt-proto/-add dlist idx)
-            (recur (unchecked-inc idx) (if has-dlist?
-                                         retval
-                                         (assoc! retval value dlist))))
-          (persistent! retval))))))
+  (let [afn (fn [_k] (index-reducer))]
+    (-> (reduce (hamf/indexed-accum-fn
+                 (fn [acc idx v]
+                   (let [l (.computeIfAbsent ^JS acc v afn)]
+                     (.accept ^JS l idx))
+                   acc))
+                (hamf/mut-map)
+                data)
+        (hamf/update-values (fn [k v] (deref v)))
+        (persistent!))))
+
 
 (defn arglast-every
   "Return the last index where (pred (rdr idx) (rdr (dec idx))) was true by
