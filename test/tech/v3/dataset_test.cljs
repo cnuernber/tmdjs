@@ -4,7 +4,18 @@
             [tech.v3.dataset.node :as ds-node]
             [tech.v3.datatype :as dtype]
             [tech.v3.datatype.functional :as dfn]
-            [tech.v3.datatype.datetime :as dtype-dt]))
+            [tech.v3.datatype.argops :as argops]
+            [tech.v3.datatype.datetime :as dtype-dt]
+            [ham-fisted.api :as hamf]))
+
+
+(deftest index-reducer-tests
+  (is (= [1 1 1] (vec (hamf/reduce-reducer argops/index-reducer-rf [1 1 1]))))
+  (is (= [-1 -2 -3] (vec (hamf/reduce-reducer argops/index-reducer-rf [-1 -2 -3]))))
+  (is (= [1 2 3] (vec (hamf/reduce-reducer argops/index-reducer-rf [1 2 3]))))
+  (is (= [1 2] (vec (hamf/reduce-reducer argops/index-reducer-rf [1 2]))))
+  (is (= [1] (vec (hamf/reduce-reducer argops/index-reducer-rf [1]))))
+  (is (= [] (vec (hamf/reduce-reducer argops/index-reducer-rf [])))))
 
 
 (deftest nth-neg-indexes
@@ -55,7 +66,7 @@
     (is (= 202 (ds/row-count ds)))))
 
 
-(deftest colum-map-test
+(deftest column-map-test
   (let [ds (-> (ds/->dataset {:a (range 10)})
                (ds/column-map :b (partial + 2)))]
     (is (= 45 (apply + (ds :a))))

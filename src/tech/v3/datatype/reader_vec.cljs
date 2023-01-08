@@ -2,7 +2,9 @@
   (:require [tech.v3.datatype.copy-make-container :as dt-cmc]
             [tech.v3.datatype.arrays :as dt-arrays]
             [tech.v3.datatype.base :as dt-base]
-            [tech.v3.datatype.protocols :as dt-proto]))
+            [tech.v3.datatype.protocols :as dt-proto]
+            [ham-fisted.api :as hamf]
+            [ham-fisted.lazy-noncaching :as lznc]))
 
 
 (declare reader-vec)
@@ -79,6 +81,10 @@
       (idx->val n)
       not-found))
 
+  IReduce
+  (-reduce [this rfn] (-reduce (hamf/range cnt) #(rfn %1 (idx->val %2))))
+  (-reduce [this rfn acc] (-reduce (hamf/range cnt) #(rfn %1 (idx->val %2)) acc))
+
   ILookup
   (-lookup [coll k] (-lookup coll k nil))
   (-lookup [coll k not-found] (if (number? k)
@@ -119,40 +125,11 @@
         (== n cnt) (-conj coll val)
         :else (throw (js/Error. (str "Index " n " out of bounds  [0," cnt "]"))))))
 
-  IReduce
-  (-reduce [_v f]
-    (case cnt
-      0 (f)
-      1 (f (idx->val 0))
-      (loop [idx 1
-             init (f (idx->val 0))]
-        (if (and (< idx cnt) (not (reduced? init)))
-          (recur (inc idx) (f init (idx->val idx)))
-          init))))
-  (-reduce [_v f init]
-    (if (reduced? init)
-      init
-      (case cnt
-        0 init
-        1 (f init (idx->val 0))
-        (loop [i 0
-               init init]
-          (if (and (< i cnt) (not (reduced? init)))
-            (recur (inc i) (f init (idx->val i)))
-            init)))))
-
   IKVReduce
   (-kv-reduce [_v f init]
-    (if (reduced? init)
-      init
-      (case cnt
-        0 init
-        1 (f init 0 (idx->val 0))
-        (loop [idx 0
-               init init]
-          (if (and (< idx cnt) (not (reduced? init)))
-            (recur (inc idx) (f init idx (idx->val idx)))
-            init)))))
+    (-reduce #(f %1 %2 (idx->val %2))
+             init
+             (hamf/range cnt)))
 
   IFn
   (-invoke [coll k]
@@ -161,17 +138,12 @@
     (-nth coll k not-found))
 
   IEditableCollection
-  (-as-transient [_coll]
-    (loop [idx 0
-           retval (transient [])]
-      (if (< idx cnt)
-        (recur (inc idx) (conj! retval (idx->val idx)))
-        retval)))
+  (-as-transient [coll] (hamf/mut-list coll))
 
   IReversible
   (-rseq [coll]
     (when (pos? cnt)
-      (map #(nth coll %) (range (dec cnt) -1 -1))))
+      (seq (lznc/map #(idx->val %) (range (dec cnt) -1 -1)))))
 
   IIterable
   (-iterator [this]

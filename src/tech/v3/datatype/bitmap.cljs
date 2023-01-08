@@ -29,32 +29,15 @@
 (defn ->js-set
   ([] (js/Set.))
   ([data]
-   (if (nil? data)
+   (cond
+     (nil? data)
      (->js-set)
-     (cond
-       (instance? js/Set data)
-       data
-       (dt-base/as-agetable data)
-       (let [data (dt-base/as-agetable data)
-             n-data (count data)
-             retval (js/Set.)]
-         (dotimes [idx n-data]
-           (.add retval (aget data idx)))
-         retval)
-       (dt-base/integer-range? data)
-       (let [retval (js/Set.)]
-         (dt-base/iterate-range! #(.add retval %) data)
-         retval)
-       (as-iterable data)
-       (let [data (as-iterable data)
-             retval (js/Set.)]
-         (dt-base/iterate! #(.add retval %) data)
-         retval)
-       :else
-       (let [retval (js/Set.)]
-         (doseq [item data]
-           (.add retval item))
-         retval)))))
+     (instance? js/Set data)
+     data
+     :else
+     (reduce #(do (.add ^JS %1 %2) %1)
+             (js/Set.)
+             data))))
 
 
 (defn ->bitmap

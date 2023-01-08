@@ -1,5 +1,6 @@
 (ns tech.v3.datatype.statistics
-  (:require [tech.v3.datatype :as dtype])
+  (:require [tech.v3.datatype :as dtype]
+            [ham-fisted.api :as hamf])
   (:refer-clojure :exclude [min max]))
 
 
@@ -46,60 +47,45 @@
 
 (defn sum
   [v]
-  (-> (dtype/iterate! (sum-reducer) v)
-      (deref)
-      (:sum)))
+  (hamf/sum v))
 
 
 (defn min
   [v]
-  (-> (dtype/iterate! (min-reducer) v)
-      (deref)
-      (:sum)))
+  (->> (hamf/apply-nan-strategy nil v)
+       (hamf/mmin-key identity)))
 
 
 (defn max
   [v]
-  (-> (dtype/iterate! (max-reducer) v)
-      (deref)
-      (:sum)))
+  (->> (hamf/apply-nan-strategy nil v)
+       (hamf/mmin-key identity)))
 
 
 (defn mean
   [v]
-  (let [{:keys [sum n-elems]} @(dtype/iterate! (sum-reducer) v)]
-    (cljs.core// sum n-elems)))
+  (hamf/mean v))
 
 
 (defn variance
   [v]
-  (let [{dsum :sum
-         n-elems :n-elems} @(dtype/iterate! (sum-reducer) v)
-        mean (cljs.core// dsum n-elems)]
-    (/ (-> (dtype/emap #(let [v (- % mean)]
-                          (* v v))
-                       :float64
-                       v)
-           (sum))
-       (dec n-elems))))
+  (hamf/variance v))
 
 
 (defn standard-deviation
   [v]
-  (Math/sqrt (variance v)))
+  (hamf/standard-deviation v))
+
+
+(defn mode
+  [v]
+  (hamf/mode v))
 
 
 (defn- ensure-sorted
   "ensure v is sorted returning a typed buffer of data."
-  [v nan-strategy]
-  (let [v (case (or nan-strategy :remove)
-            :keep v
-            :remove (remove #(js/isNaN %) v)
-            :exception (dtype/emap #(if (js/isNaN %)
-                                      (throw (js/Error. "Nan detected in data"))
-                                      %)
-                                   :float64
-                                   v))
+  [options v]
+  (let [v (hamf/apply-nan-strategy options v)
         tbuf (or (dtype/as-typed-array v)
                  (-> (dtype/make-container :float64 v)
                      (dtype/as-typed-array)))]
@@ -115,7 +101,7 @@ tech.v3.datatype.functional> (percentiles [0 25 50 75 100] (range 10))
 [0.0 1.75 4.5 7.25 9.0]
 ```"
   ([percentages options v]
-   (let [v (ensure-sorted v (get options :nan-strategy))
+   (let [v (ensure-sorted options v)
          nv (inc (count v))]
      (-> (->> percentages
               (dtype/emap

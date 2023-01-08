@@ -5,7 +5,7 @@
         tick/tick {:mvn/version "0.5.0"}
         com.cognitect/transit-clj {:mvn/version "1.0.324"}
         com.cnuernber/ham-scripted {:git/url "https://github.com/cnuernber/ham-scripted"
-                                    :sha "8c238576ebd7f13d01fa8fd64903f7c65e04d53d"}}
+                                    :sha "fa46a15aa7a1bb2bc884cebcb6edd2bf3c560b9b"}}
  :aliases
  {:dev
   {:extra-deps {metosin/muuntaja {:mvn/version "0.6.8"}}}

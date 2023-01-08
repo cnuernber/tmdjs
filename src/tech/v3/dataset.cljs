@@ -73,7 +73,8 @@ cljs.user> (-> (ds/->dataset {:a (range 100)
 
 
 (defn mapseq-parser-rf
-  "Return a transduce-compatible sequence-of-maps parser"
+  "Return a transduce-compatible sequence-of-maps parser.  For example of use
+  see definition of [[row-map]]."
   [options]
   (fn
     ([]
@@ -93,7 +94,7 @@ cljs.user> (-> (ds/->dataset {:a (range 100)
     ([acc v] (acc nil v) acc)))
 
 
-(defn parse-mapseq
+(defn- parse-mapseq
   ([data] (parse-mapseq nil nil data))
   ([xform data] (parse-mapseq xform nil data))
   ([xform options data]
@@ -880,9 +881,7 @@ cljs.user> (ds/head (ds/row-map stocks (fn [row]
 |   :MSFT | 2000-05-01 |  25.45 |  647.70250000 |]
 ```"
   [ds map-fn & [options]]
-  (merge ds (->> (rows ds)
-                 (dtype/emap map-fn :object)
-                 (->>dataset options))))
+  (merge ds (transduce (map map-fn) (mapseq-parser-rf options) (rows ds))))
 
 
 (defn- numeric-data->b64
@@ -902,16 +901,19 @@ cljs.user> (ds/head (ds/row-map stocks (fn [row]
         strtable (js/Array.)
         indexes (dtype/make-container :int32 (count col))
         idx-aget (dtype/as-agetable indexes)]
-    (dtype/indexed-iterate!
-     (fn [idx strval]
-       (aset idx-aget idx
-              (when strval
-                (if-let [cur-idx (.get strmap strval)]
-                  cur-idx
-                  (let [cur-idx (count strtable)]
-                    (.push strtable strval)
-                    (.set strmap strval cur-idx)
-                    cur-idx))))) col)
+    (reduce (hamf/indexed-accum-fn
+             (fn [acc idx strval]
+               (aset idx-aget idx
+                     (when strval
+                       (if-let [cur-idx (.get strmap strval)]
+                         cur-idx
+                         (let [cur-idx (count strtable)]
+                           (.push strtable strval)
+                           (.set strmap strval cur-idx)
+                           cur-idx))))
+               nil))
+            nil
+            col)
     {:strtable strtable
      :indexes (numeric-data->b64 indexes)}))
 
@@ -919,7 +921,7 @@ cljs.user> (ds/head (ds/row-map stocks (fn [row]
 (defn- text-col->data
   [col]
   (let [n-elems (count col)
-        offsets (dtype/make-container :int8 (count col))
+        offsets (dtype/make-container :int8 n-elems)
         aget-off (dtype/as-agetable offsets)
         buffer (loop [idx 0
                       buffer ""]

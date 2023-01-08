@@ -9,6 +9,8 @@
             [tech.v3.dataset.protocols :as ds-proto]
             [tech.v3.datatype.format-sequence :as fmt]
             [tech.v3.dataset.columnwise-map :as cmap]
+            [ham-fisted.api :as hamf]
+            [ham-fisted.lazy-noncaching :as lznc]
             [clojure.string :as str]))
 
 
@@ -111,7 +113,7 @@
 
 (declare make-dataset)
 
-(deftype Dataset [col-ary colname->col metadata ^:mutable hashcode]
+(deftype Dataset [col-ary colname->col metadata]
   Object
   (toString [coll]
     (pr-str* coll))
@@ -208,21 +210,10 @@
               (vals o))))
 
   IHash
-  (-hash [_this]
-    (when-not hashcode
-      (set! hashcode
-            (let [n-elems (count col-ary)]
-              (loop [idx 0
-                     hash-code 1]
-                (if (< idx n-elems)
-                  (let [col (nth col-ary idx)]
-                    (recur (unchecked-inc idx)
-                           (-> hash-code
-                               (dt-arrays/hash-next (hash (name col)))
-                               (dt-arrays/hash-next (hash col)))))
-                  (mix-collection-hash hash-code n-elems))))))
-    hashcode)
-
+  (-hash [this] (hamf/hash-unordered (into [] (lznc/map
+                                               (fn [col]
+                                                 [(get (meta col) :name) col])
+                                               col-ary))))
   IEquiv
   (-equiv [this other]
     (if (and other
@@ -293,8 +284,9 @@
       retval))
 
   ds-proto/PSelectRows
-  (-select-rows [_this rowidxes]
-    (make-dataset (mapv #(ds-proto/-select-rows % rowidxes) col-ary) colname->col metadata))
+  (-select-rows [this rowidxes]
+    (let [rowidxes (col-impl/process-row-indexes (ds-proto/-row-count this) rowidxes)]
+      (make-dataset (mapv #(ds-proto/-select-rows % rowidxes) col-ary) colname->col metadata)))
 
   ds-proto/PSelectColumns
   (-select-columns [this colnames]
@@ -463,7 +455,7 @@ as an options map.  The options map overrides the dataset metadata.
 (defn- make-dataset
   "private dataset api"
   [col-ary colmap metadata]
-  (Dataset. col-ary colmap metadata nil))
+  (Dataset. col-ary colmap metadata))
 
 
 (defn new-dataset

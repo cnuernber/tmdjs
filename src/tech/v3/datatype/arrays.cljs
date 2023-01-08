@@ -3,7 +3,8 @@
             [tech.v3.datatype.base :as dt-base]
             [tech.v3.datatype.argtypes :as argtypes]
             [tech.v3.datatype.casting :as casting]
-            [ham-fisted.api :as hamf])
+            [ham-fisted.api :as hamf]
+            [ham-fisted.lazy-noncaching :as lznc])
   (:refer-clojure :exclude [make-array]))
 
 (set! *unchecked-arrays* true)
@@ -24,33 +25,6 @@
 
 (def typed-array-types (set (map second ary-types)))
 
-
-(defn hash-next
-  [hashcode nexthash]
-  (bit-or (+ (imul 31 hashcode) nexthash) 0))
-
-
-(defn hash-agetable
-  [item]
-  (let [item (dt-base/as-agetable item)
-        n-elems (count item)]
-    (loop [idx 0
-           hash-code 1]
-      (if (< idx n-elems)
-        (recur (unchecked-inc idx)
-               (bit-or (+ (imul 31 hash-code) (hash (aget item idx))) 0))
-        (mix-collection-hash hash-code n-elems)))))
-
-
-(defn hash-nthable
-  [item]
-  (let [n-elems (count item)]
-    (loop [idx 0
-           hash-code 1]
-      (if (< idx n-elems)
-        (recur (unchecked-inc idx)
-               (bit-or (+ (imul 31 hash-code) (hash (nth item idx))) 0))
-        (mix-collection-hash hash-code n-elems)))))
 
 
 (defn equiv-agetable
@@ -149,30 +123,6 @@
     (aget-iter data)
     (nth-iter data)))
 
-(defn nth-reduce
-  ([buf f]
-   (let [cnt (count buf)]
-     (case cnt
-      0 (f)
-      1 (f (nth buf 0))
-      (loop [idx 1
-             init (f (nth buf 0))]
-        (if (and (< idx cnt) (not (reduced? init)))
-          (recur (inc idx) (f init (-nth buf idx)))
-          init)))))
-  ([buf f init]
-   (let [cnt (count buf)]
-     (if (reduced? init)
-       init
-       (case cnt
-         0 init
-         1 (f init (nth buf 0))
-         (loop [i 0
-                init init]
-           (if (and (< i cnt) (not (reduced? init)))
-             (recur (inc i) (f init (-nth buf i)))
-             init)))))))
-
 
 (doseq [ary-type (map first ary-types)]
   (let [cast-fn (casting/cast-fn (ary-types ary-type))]
@@ -191,7 +141,7 @@
       (-sub-buffer [item off len]
         (.subarray item off (+ off len)))
       IHash
-      (-hash [o] (hash-agetable o))
+      (-hash [o] (hamf/hash-ordered o))
       IEquiv
       (-equiv [this other]
         (equiv-agetable this other))
@@ -232,19 +182,13 @@
           (aset item idx (cast-fn data))
           (dt-proto/-convertible-to-typed-array? data)
           (.set item (dt-proto/->typed-array data) idx)
-          (dt-proto/-convertible-to-js-array? data)
-          (let [data (dt-proto/->js-array data)]
-            (dotimes [didx (count data)]
-              (aset item (+ idx didx) (cast-fn (aget data didx)))))
-          ;;common case for integer ranges
-          (dt-base/integer-range? data)
-          (if (and (= 1 (aget data "step"))
-                   (= 0 (aget data "start")))
-            (dotimes [ridx (count data)]
-              (aset item (+ ridx idx) (cast-fn ridx)))
-            (dt-base/indexed-iterate-range! #(aset item (+ idx %1) (cast-fn %2)) data))
           :else
-          (dt-base/indexed-iterate! #(aset item (+ idx %1) (cast-fn %2)) data))
+          (reduce (hamf/indexed-accum-fn
+                   (fn [acc iidx v]
+                     (aset acc (+ idx iidx) (cast-fn v))
+                     acc))
+                  item
+                  data))
         item)
       dt-proto/PSetConstant
       (-set-constant! [item offset elem-count data]
@@ -268,10 +212,14 @@
   ICloneable
   (-clone [item] (.slice item 0 (count item)))
   IHash
-  (-hash [o] (hash-agetable o))
+  (-hash [o] (hamf/hash-ordered o))
   IEquiv
   (-equiv [this other]
     (equiv-agetable this other))
+  IReduce
+  (-reduce
+    ([this rfn] (array-reduce this rfn))
+    ([this rfn init] (array-reduce this rfn init)))
   dt-proto/PSetValue
   (-set-value! [item idx data]
     (cond
@@ -310,17 +258,9 @@
 
 (defn- booleans->bytes
   [data]
-  (cond
-    (argtypes/scalar? data) (bool-val->byte data)
-    (dt-proto/-convertible-to-typed-array? data)
-    (.map (dt-proto/->typed-array data) bool-val->byte)
-    (dt-proto/-convertible-to-js-array? data)
-    (.map (dt-proto/->js-array data) bool-val->byte)
-    (sequential? data)
-    (mapv bool-val->byte data)
-    ;;scalars should fall through here.
-    :else
-    (if data 1 0)))
+  (if (argtypes/scalar? data)
+    (bool-val->byte data)
+    (lznc/map bool-val->byte data)))
 
 
 (defn byte->boolean
@@ -330,8 +270,12 @@
 
 (declare make-boolean-array)
 
+
+(defn- bool-ary-nth
+  [buf n] (byte->boolean (-nth buf n)))
+
 ;;Booleans are stored as 1,0 bytes.
-(deftype BooleanArray [buf metadata ^:unsynchronized-mutable hashcode]
+(deftype BooleanArray [buf metadata]
   ICounted
   (-count [_item] (count buf))
   ICloneable
@@ -350,14 +294,10 @@
     item)
   dt-proto/PSetConstant
   (-set-constant! [item offset elem-count data]
-    (dt-proto/-set-constant! buf offset elem-count
-                                (booleans->bytes data))
+    (dt-proto/-set-constant! buf offset elem-count (bool-val->byte data))
     item)
   IHash
-  (-hash [o]
-    (when-not hashcode
-      (set! hashcode (hash-nthable o)))
-    hashcode)
+  (-hash [o] (hamf/hash-ordered o))
   IEquiv
   (-equiv [this other]
     (equiv-nthable this other))
@@ -374,7 +314,7 @@
   (-with-meta [coll new-meta]
     (if (identical? new-meta metadata)
       coll
-      (BooleanArray. buf new-meta nil)))
+      (BooleanArray. buf new-meta)))
   IMeta
   (-meta [_coll] metadata)
   IPrintWithWriter
@@ -389,18 +329,21 @@
   (-first [_array] (byte->boolean (nth buf 0)))
   (-rest  [array] (dt-base/sub-buffer array 1 (dec (count buf))))
   IFn
-  (-invoke [array n]
-    (nth-impl n (count buf) nil #(byte->boolean (nth %1 %2)) buf))
+  (-invoke [array n] (-nth array n))
+  (-invoke [array n not-found] (-nth array n not-found))
   IIndexed
   (-nth [array n]
-    (nth-impl n (count buf) ::exception #(byte->boolean (nth %1 %2)) buf))
+    (nth-impl n (count buf) ::exception bool-ary-nth buf))
   (-nth [array n not-found]
-    (nth-impl n (count buf) not-found #(byte->boolean (nth %1 %2)) buf)))
+    (nth-impl n (count buf) not-found bool-ary-nth buf))
+  IReduce
+  (-reduce [this rfn] (reduce rfn (lznc/map byte->boolean buf)))
+  (-reduce [this rfn init] (reduce rfn init (lznc/map byte->boolean buf))))
 
 
 (defn make-boolean-array
   [buf & [metadata]]
-  (BooleanArray. buf metadata nil))
+  (BooleanArray. buf metadata))
 
 
 (declare make-typed-buffer)
@@ -465,9 +408,7 @@
   ISequential
   IHash
   (-hash [_o]
-    (if-let [aget-buf (dt-base/as-agetable buf)]
-      (hash-agetable aget-buf)
-      (hash-nthable buf)))
+    (hamf/hash-ordered _o))
   IEquiv
   (-equiv [_this other]
     (if-let [aget-buf (dt-base/as-agetable buf)]
@@ -513,6 +454,19 @@
     (let [n-start (nth r off)
           n-end (nth r (+ off len))]
       (range n-start n-end (aget r "step"))))
+  dt-proto/PSubBufferCopy
+  (-sub-buffer-copy [r off len]
+    (dt-proto/-sub-buffer r off len)))
+
+
+(extend-type hamf/RangeType
+  dt-proto/PElemwiseDatatype
+  (-elemwise-datatype [r] (if (.isInteger r) :int64 :float64))
+  dt-proto/PSubBuffer
+  (-sub-buffer [r off len]
+    (let [n-start (nth r off)
+          n-end (nth r (+ off len))]
+      (hamf/range n-start n-end (aget r "step"))))
   dt-proto/PSubBufferCopy
   (-sub-buffer-copy [r off len]
     (dt-proto/-sub-buffer r off len)))

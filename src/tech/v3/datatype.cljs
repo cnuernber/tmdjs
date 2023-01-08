@@ -9,7 +9,8 @@
             [tech.v3.datatype.arrays :as dt-arrays]
             [tech.v3.datatype.casting :as casting]
             [tech.v3.datatype.bitmap :as bitmap]
-            [tech.v3.datatype.reader-vec :as rvec])
+            [tech.v3.datatype.reader-vec :as rvec]
+            [tech.v3.datatype.emap1-vec :as emap1])
   (:refer-clojure :exclude [clone counted? indexed? reverse]))
 
 
@@ -357,15 +358,18 @@ cljs.user> (dtype/list-coalesce! [[2 3 4][5 6 7]] (dtype/make-list :float32))
     (if (every? indexed? args)
       (let [n-elems (apply min (map count args))]
         (case (count args)
-          1  (let [arg (first args)
-                   aarg (dt-base/as-agetable arg)]
-               (reify-reader ret-dtype n-elems (if aarg
-                                                 #(map-fn (aget aarg %))
-                                                 #(map-fn (nth arg %)))))
+          1 (emap1/emap1-vec ret-dtype map-fn (first args))
           2 (let [arg1 (first args)
-                  arg2 (second args)]
-              (reify-reader ret-dtype n-elems #(map-fn (nth arg1 %)
-                                                       (nth arg2 %))))
+                  arg2 (second args)
+                  aa1 (dt-base/as-agetable arg1)
+                  aa2 (dt-base/as-agetable arg2)]
+              ;;Using aget when possible is a factor of 10 in summation times
+              (reify-reader ret-dtype n-elems
+                            (if (and aa1 aa2)
+                              #(map-fn (aget aa1 %)
+                                       (aget aa2 %))
+                              #(map-fn (nth arg1 %)
+                                       (nth arg2 %)))))
           3 (let [arg1 (nth args 0)
                   arg2 (nth args 1)
                   arg3 (nth args 3)]

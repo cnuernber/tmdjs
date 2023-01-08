@@ -102,6 +102,14 @@
         (ColumnwiseMap. meta new-ary new-colmap row-idx nil))
       coll))
 
+  IReduce
+  (-reduce [this rfn] (-reduce col-ary
+                               (fn [acc col]
+                                 (rfn acc (MapEntry. (name col) (col row-idx) nil)))))
+  (-reduce [this rfn acc] (-reduce col-ary
+                                   (fn [acc col]
+                                     (rfn acc (MapEntry. (name col) (col row-idx) nil)))
+                                   acc))
   IKVReduce
   (-kv-reduce [_coll f init]
     (let [n-cols (count col-ary)]

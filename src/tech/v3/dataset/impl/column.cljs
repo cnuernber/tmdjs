@@ -4,6 +4,7 @@
             [tech.v3.datatype :as dtype]
             [tech.v3.datatype.base :as dt-base]
             [tech.v3.datatype.argtypes :as argtypes]
+            [tech.v3.datatype.argops :as argops]
             [tech.v3.datatype.arrays :as dt-arrays]
             [tech.v3.datatype.protocols :as dt-proto]
             [tech.v3.dataset.string-table :as strt]
@@ -52,16 +53,44 @@
       rng
       (let [rstart (clamp rstart 0 (unchecked-dec n-rows))
             rend (clamp rend -1 n-rows)]
-        (range rstart rend (aget rng "step"))))))
+        (hamf/range rstart rend (aget rng "step"))))))
 
 
-(defn process-row-indexes [] )
+(defn- scan-indexes
+  [n-rows rowidxs]
+  (with-meta
+    (transduce (map #(let [rv (if (< % 0)
+                                (+ % n-rows)
+                                %)]
+                       (when (or (< rv 0) (>= rv n-rows))
+                         (throw (js/Error. (str "Index (" % ") is out of range: [0-" n-rows ")"))))
+                       rv))
+               argops/index-reducer-rf
+               rowidxs)
+    {:tech.v3.datatype.argops/processed true}))
+
+
+(defn process-row-indexes
+  [n-rows rowidxs]
+  ;;Avoid double processing
+  (if (get (meta rowidxs) :tech.v3.datatype.argops/processed)
+    rowidxs
+    (if (dt-base/integer-range? rowidxs)
+      (let [start (aget rowidxs "start")
+            step (aget rowidxs "step")
+            ne (count rowidxs)]
+        (if (and (>= 0 start) (pos? step))
+          (vary-meta (clip-integer-range n-rows rowidxs)
+                     assoc :tech.v3.datatype.argops/processed true)
+          (scan-indexes n-rows rowidxs)))
+      ;;Convert negative indexes to positive.
+      (scan-indexes n-rows rowidxs))))
 
 
 (declare new-column)
 
 
-(deftype Column [buf missing metadata numeric? ^:mutable hashcode]
+(deftype Column [buf missing metadata numeric?]
   Object
   (toString [coll]
     (pr-str* coll))
@@ -110,10 +139,7 @@
   (-name [_this] (:name metadata))
   ISequential
   IHash
-  (-hash [o]
-    (when-not hashcode
-      (set! hashcode (dt-arrays/hash-nthable o)))
-    hashcode)
+  (-hash [o] (hamf/hash-ordered o))
   IEquiv
   (-equiv [this other]
     (dt-arrays/equiv-nthable this other))
@@ -201,9 +227,7 @@
   (-missing [_this] missing)
   ds-proto/PSelectRows
   (-select-rows [_this rowidxs]
-    (let [rowidxs (if (dtype/integer-range? rowidxs)
-                    (clip-integer-range (count buf) rowidxs)
-                    rowidxs)
+    (let [rowidxs (process-row-indexes (dtype/ecount buf) rowidxs)
           new-missing (js/Set.)]
       (when-not (== 0 (count missing))
         (dtype/indexed-iterate!
@@ -215,4 +239,4 @@
 
 (defn new-column
   [buf missing metadata numeric?]
-  (Column. buf missing metadata numeric? nil))
+  (Column. buf missing metadata numeric?))

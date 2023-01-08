@@ -140,30 +140,9 @@
            (.isInteger ^JS item))))
 
 
-(defn iterate-range!
-  [consume-fn range]
-  (let [start (aget range "start")
-        step (aget range "step")
-        n-elems (count range)]
-    (if (and (= 0 start) (= 1 step))
-      (dotimes [idx n-elems]
-        (consume-fn idx))
-      (dotimes [idx n-elems]
-        (consume-fn (+ start (* idx step)))))
-    consume-fn))
-
-
-(defn indexed-iterate-range!
-  [consume-fn range]
-  (let [start (aget range "start")
-        step (aget range "step")
-        n-elems (count range)]
-    (if (and (= 0 start) (= 1 step))
-      (dotimes [idx n-elems]
-        (consume-fn idx idx))
-      (dotimes [idx n-elems]
-        (consume-fn idx (+ start (* idx step)))))
-    consume-fn))
+(defn- consumer-acc
+  [acc v]
+  (acc v) acc)
 
 
 (defn as-js-iterator
@@ -181,71 +160,16 @@
 
 (defn indexed-iterate!
   [consume-fn item]
-  (if-let [ary (as-agetable item)]
-    (let [n-elems (count ary)]
-      (dotimes [idx n-elems]
-        (consume-fn idx (aget ary idx))))
-    (cond
-      (integer-range? item)
-      (indexed-iterate-range! consume-fn item)
-      (as-iterator item)
-      (let [iter (as-iterator item)]
-        (loop [continue? (.hasNext iter)
-               idx 0]
-          (when continue?
-            (consume-fn idx (.next iter))
-            (recur (.hasNext iter) (unchecked-inc idx)))))
-      (as-js-iterator item)
-      (let [vals (as-js-iterator item)]
-        (loop [data (.next vals)
-               idx 0]
-          (when-not (.-done data)
-            (consume-fn idx (.-value data))
-            (recur (.next vals) (unchecked-inc idx)))))
-      (indexed? item)
-      (let [n-elems (count item)]
-        (dotimes [idx n-elems]
-          (consume-fn idx (nth item idx))))
-      :else
-      (when-let [item (seq item)]
-        (loop [val (first item)
-               item (rest item)
-               idx 0]
-          (consume-fn idx val)
-          (when (seq item)
-            (recur (first item) (rest item) (unchecked-inc idx)))))))
-  consume-fn)
+  (reduce (hamf/indexed-accum-fn
+           (fn [acc idx v]
+             (acc idx v)
+             acc))
+          consume-fn item))
 
 
 (defn iterate!
   [consume-fn item]
-  (if-let [ary (as-agetable item)]
-    (let [n-elems (count ary)]
-      (dotimes [idx n-elems]
-        (consume-fn (aget ary idx))))
-    (cond
-      (integer-range? item)
-      (iterate-range! consume-fn item)
-      (as-iterator item)
-      (let [iter (as-iterator item)]
-        (loop [continue? (.hasNext iter)]
-          (when continue?
-            (consume-fn (.next iter))
-            (recur (.hasNext iter)))))
-      (as-js-iterator item)
-      (let [vals (as-js-iterator item)]
-        (loop [data (.next vals)]
-          (when-not (.-done data)
-            (consume-fn (.-value data))
-            (recur (.next vals)))))
-      (and (counted? item) (indexed? item))
-      (let [n-elems (count item)]
-        (dotimes [idx n-elems]
-          (consume-fn (nth item idx))))
-      :else
-      (doseq [val item]
-        (consume-fn val))))
-  consume-fn)
+  (reduce consumer-acc consume-fn item))
 
 
 (defn reader-data->str
@@ -279,7 +203,7 @@
         rdr-str (reader-data->str rdr dtype)]
     (if simple-print?
       (str "[" rdr-str "]")
-      (str "#" typename "[[" dtype " " cnt "][" rdr-str "]"))))
+      (str "#" typename "[[" dtype " " cnt "][" rdr-str "]]"))))
 
 
 (defn list-coalesce!

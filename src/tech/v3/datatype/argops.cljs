@@ -94,36 +94,52 @@ cljs.user> (argops/argsort nil  ;;no compare fn
                        ^:unsynchronized-mutable increment]
   Object
   (accept [this elem]
-    (if (= start -1)
+    (if (nil? start)
       (set! start elem)
       (let [new-inc (- elem last-val)]
         (cond
-          (nil? increment)
-          (set! increment new-inc)
+          (== new-inc increment) nil ;;do nothing
           (js/isNaN increment)
           (dt-proto/-add list elem)
+          (and (not= 0 new-inc) (nil? increment))
+          (set! increment new-inc)
           :else
           (when (not= increment new-inc)
-            (reduce #(dt-proto/-add %1 %2)
-                    list
-                    (range start (+ last-val increment) increment))
-            (dt-proto/-add list elem)
+            (cond
+              (nil? increment)
+              (do
+                (dt-proto/-add list start)
+                (dt-proto/-add list elem))
+              :else
+              (do
+                (reduce #(dt-proto/-add %1 %2)
+                        list
+                        (range start (+ last-val increment) increment))
+                (dt-proto/-add list elem)))
             (set! increment js/NaN)))))
     (set! last-val elem))
   IDeref
   (-deref [this]
-    (cond
-      (= start -1)
-      (range 0)
-      (js/isNaN increment)
-      (dt-base/sub-buffer list 0 (dt-base/ecount list))
-      :else
-      (if (nil? increment)
-        (hamf/range start (inc start))
-        (hamf/range start (+ last-val (or increment (- last-val start))) increment)))))
+    (with-meta
+      (cond
+        (nil? start) []
+        (js/isNaN increment)
+        (dt-base/sub-buffer list 0 (dt-base/ecount list))
+        :else
+        (if (nil? increment)
+          (hamf/range start (inc start))
+          (hamf/range start (+ last-val (or increment (- last-val start))) increment)))
+      {::processed true})))
 
 
-(defn index-reducer [] (IndexReducer. (dt-list/make-list :int32) -1 -1 nil))
+(defn index-reducer [] (IndexReducer. (dt-list/make-list :int32) nil nil nil))
+
+
+(defn index-reducer-rf
+  "Return a transduce-compatible index scanning rf."
+  ([] (index-reducer))
+  ([acc v] (.accept ^JS acc v) acc)
+  ([acc] (deref acc)))
 
 
 (defn argfilter

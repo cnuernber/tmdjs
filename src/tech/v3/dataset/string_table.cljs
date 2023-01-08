@@ -32,6 +32,9 @@
   (-pr-writer [_array writer _opts]
     (-write writer (str "#string-table"
                         (take 20 (seq container)))))
+  IReduce
+  (-reduce [this rfn] (-reduce container rfn))
+  (-reduce [this rfn acc] (-reduce container rfn acc))
   dt-proto/PElemwiseDatatype
   (-elemwise-datatype [_this] :string)
   dt-proto/PSubBuffer

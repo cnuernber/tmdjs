@@ -3,7 +3,8 @@
             [tech.v3.datatype.copy-make-container :as dt-cmc]
             [tech.v3.datatype.protocols :as dt-proto]
             [tech.v3.datatype.arrays :as dt-arrays]
-            [tech.v3.datatype.casting :as casting]))
+            [tech.v3.datatype.casting :as casting]
+            [ham-fisted.api :as hamf]))
 
 
 (declare make-primitive-list)
@@ -15,7 +16,6 @@
                         cast-fn
                         ^:unsynchronized-mutable ptr
                         ^:unsynchronized-mutable buflen
-                        ^:unsynchronized-mutable hashcode
                         metadata]
   ICounted
   (-count [_this] ptr)
@@ -50,14 +50,15 @@
     (dt-arrays/nth-impl n (count array) not-found
                         nth buf))
   IHash
-  (-hash [o]
-    (when-not hashcode
-      (set! hashcode (dt-arrays/hash-nthable o)))
-    hashcode)
+  (-hash [o] (hamf/hash-ordered o))
 
   IEquiv
   (-equiv [this other]
     (dt-arrays/equiv-nthable this other))
+
+  IReduce
+  (-reduce [this rfn] (-reduce (dt-proto/-sub-buffer buf 0 ptr) rfn))
+  (-reduce [this rfn init] (-reduce (dt-proto/-sub-buffer buf 0 ptr) rfn init))
 
   IIterable
   (-iterator [this] (dt-arrays/nth-iter this))
@@ -150,7 +151,7 @@
         agetable? (if abuf true false)]
     (PrimitiveList. (or abuf buf) agetable? dtype
                     (casting/cast-fn dtype)
-                    ptr buflen metadata nil)))
+                    ptr buflen metadata)))
 
 
 (defn make-list
