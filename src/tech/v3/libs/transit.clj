@@ -12,7 +12,7 @@
             [tech.v3.datatype.datetime :as dtype-dt]
             [tech.v3.datatype.array-buffer :as abuf]
             [tech.v3.datatype.bitmap :as bitmap]
-            [com.github.ztellman.primitive-math :as pmath]
+            [clj-commons.primitive-math :as pmath]
             [ham-fisted.api :as hamf]
             [cognitect.transit :as t])
   (:import [tech.v3.dataset.impl.dataset Dataset]
@@ -247,7 +247,8 @@
   (let [ds_a (ds/->dataset {:a [5]} {:parser-fn {:a :uint8} :dataset-name "keep-this-name"})
         ds_b (-> ds_a dataset->data data->dataset)]
     (and (= ds_a ds_b)
-         (= (meta ds_a) (meta ds_b)))))
+         (= (meta ds_a) (meta ds_b))))
+  )
 
 (def write-handlers {Dataset (t/write-handler "tech.v3.dataset" dataset->data)})
 (def read-handlers {"tech.v3.dataset" (t/read-handler data->dataset)})
