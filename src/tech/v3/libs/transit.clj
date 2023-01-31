@@ -123,8 +123,10 @@
   [col]
   (let [col-dt (packing/unpack-datatype (dtype/elemwise-datatype col))]
     {:metadata (assoc (meta col) :datatype col-dt)
-     :missing (vec (bitmap/->random-access
-                    (ds/missing col)))
+     :missing (vec (-> (ds/missing col)
+                       (bitmap/->random-access)
+                       (hamf/object-array)
+                       vec))
      :data
      (cond
        (casting/numeric-type? col-dt)
@@ -282,6 +284,11 @@
     (t/read reader)))
 
 
+(defn transit-str->dataset
+  [ds-str]
+  (transit->dataset (java.io.ByteArrayInputStream. (.getBytes ^String ds-str))))
+
+
 (defmethod ds-io/data->dataset :transit-json
   [data options]
   (with-open [in (io/input-stream data)]
@@ -307,8 +314,14 @@
                    :f (repeat 5 (dtype-dt/local-date))
                    :g (repeat 5 (dtype-dt/instant))
                    :h [true false true true false]
-                   :i (repeat 5 "text")}
+                   :i (repeat 5 "text")
+                   :j [1 nil 2 nil 3]}
                   {:parser-fn {:i :text}}))
+
+
+  (-> (master-ds)
+      (dataset->transit-str)
+      (transit-str->dataset))
 
 
   (def test-data (vec (repeatedly 100000 #(hash-map :time (rand)
