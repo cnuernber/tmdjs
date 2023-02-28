@@ -21,7 +21,6 @@
 
 
 (defprotocol PDataset
-  (-is-dataset? [item])
   ;;error on failure
   (-column [ds colname])
   ;;indexable object.
@@ -39,24 +38,20 @@
   PRowCount
   (-row-count [this] (count this))
   PColumnCount
-  (-column-count [this] 0)
-  PDataset
-  (-is-dataset? [item] false))
+  (-column-count [this] 0))
 
 (extend-type array
-  PDataset
-  (-is-dataset? [item] false)
   PColumn
   (-is-column? [col] false))
 
 (extend-type boolean
-  PDataset
-  (-is-dataset? [item] false)
   PColumn
   (-is-column? [col] false))
 
 (extend-type number
-  PDataset
-  (-is-dataset? [item] false)
+  PColumn
+  (-is-column? [col] false))
+
+(extend-type nil
   PColumn
   (-is-column? [col] false))

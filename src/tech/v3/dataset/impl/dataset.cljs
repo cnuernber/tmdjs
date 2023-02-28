@@ -14,6 +14,9 @@
             [clojure.string :as str]))
 
 
+(declare dataset?)
+
+
 (defn- extend-data
   [data n-rows]
   (let [n-data (count data)]
@@ -200,7 +203,7 @@
   ICollection
   (-conj [coll o]
     (when-not (or (ds-proto/-is-column? o)
-                  (ds-proto/-is-dataset? o))
+                  (dataset? o))
       (throw (js/Error. "Only columns or datasets can be conj'd onto a dataset")))
     (if (ds-proto/-is-column? o)
       (assoc coll (name o) o)
@@ -217,7 +220,7 @@
   IEquiv
   (-equiv [this other]
     (if (and other
-             (ds-proto/-is-dataset? other)
+             (dataset? other)
              (= (ds-proto/-row-count this)
                 (ds-proto/-row-count other))
              (= (ds-proto/-column-count this)
@@ -243,7 +246,6 @@
     (count col-ary))
 
   ds-proto/PDataset
-  (-is-dataset? [_ds] true)
   (-column [_ds colname]
     (if-let [col-idx (colname->col colname)]
       (col-ary col-idx)
@@ -296,6 +298,10 @@
                                        [cname idx]))
                         (into {}))]
       (make-dataset n-col-ary n-colmap metadata))))
+
+(defn dataset?
+  [x]
+  (instance? Dataset x))
 
 
 (defn- reader->string-lines

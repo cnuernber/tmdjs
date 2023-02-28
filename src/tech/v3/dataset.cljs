@@ -207,8 +207,7 @@ cljs.user> (pfn)
 (defn dataset?
   "Return true of this is a dataset."
   [ds]
-  (when ds
-    (ds-proto/-is-dataset? ds)))
+  (ds-impl/dataset? ds))
 
 
 (defn missing
