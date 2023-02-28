@@ -5,7 +5,7 @@
         tick/tick {:mvn/version "0.5.0"}
         com.cognitect/transit-clj {:mvn/version "1.0.324"}
         com.cnuernber/ham-scripted {:git/url "https://github.com/cnuernber/ham-scripted"
-                                    :sha "fb899d3030cc6116e7859cbbc594932ff5698521"}}
+                                    :sha "abd041bebe9ede36aadc9600d61efe20dc72eacd"}}
  :aliases
  {:dev
   {:extra-deps {metosin/muuntaja {:mvn/version "0.6.8"}}}
@@ -24,7 +24,7 @@
    :exec-fn hf.depstar/jar
    :exec-args {:group-id "com.cnuernber"
                :artifact-id "tmdjs"
-               :version "2.000-beta-3"
+               :version "2.000-beta-4"
                :sync-pom true
                :jar "target/tmdjs.jar"}}
   ;;deploy to clojars

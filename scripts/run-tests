@@ -1,3 +1,4 @@
 #!/bin/bash
 
 clj -M:cljs compile test && node target/test.js
+clj -M:cljs release test && node target/test.js
