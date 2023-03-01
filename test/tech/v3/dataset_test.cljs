@@ -282,3 +282,13 @@
     ;;text data gets changed into string data on the client side as the cljs dataset
     ;;doesn't have a text datatype.
     (is (= ["text" "text" "text" "text" "text"] (text-ds :i)))))
+
+
+(deftest argfilter-accepts-scalars
+  (let [ds (ds/->dataset {:a [1 2 3] :b [:a :b :c]})]
+    (is (= [2 3] (-> (ds/filter-column ds :a #{2 3})
+                     (ds/column :a)
+                     (vec))))
+    (is (= [2] (-> (ds/filter-column ds :a 2)
+                   (ds/column :a)
+                   (vec))))))

@@ -1,7 +1,7 @@
 {:paths ["src"]
  ;;We serialize datasets to transit-json
  :deps {com.cognitect/transit-cljs {:mvn/version "0.8.269"}
-        techascent/tech.ml.dataset {:mvn/version "7.000-beta-27"}
+        techascent/tech.ml.dataset {:mvn/version "7.000-beta-28"}
         tick/tick {:mvn/version "0.5.0"}
         com.cognitect/transit-clj {:mvn/version "1.0.324"}
         com.cnuernber/ham-scripted {:git/url "https://github.com/cnuernber/ham-scripted"
@@ -24,7 +24,7 @@
    :exec-fn hf.depstar/jar
    :exec-args {:group-id "com.cnuernber"
                :artifact-id "tmdjs"
-               :version "2.000-beta-5"
+               :version "2.000-beta-6"
                :sync-pom true
                :jar "target/tmdjs.jar"}}
   ;;deploy to clojars
