@@ -390,7 +390,7 @@ cljs.user> (pfn)
   (let [coldata (column ds colname)]
     (if pred
       (->> (argops/argfilter
-            (if (satisfies? IFn pred)
+            (if (or (fn? pred) (satisfies? IFn pred))
               pred
               #(= pred %))
             coldata)

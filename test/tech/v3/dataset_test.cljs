@@ -292,3 +292,8 @@
     (is (= [2] (-> (ds/filter-column ds :a 2)
                    (ds/column :a)
                    (vec))))))
+
+
+(deftest simple-argfilter
+  (let [ds (ds/->dataset {:a [1 2 3 4]})]
+    (is (= [3 4] (vec (ds/column (ds/filter-column ds :a #(< 2 %)) :a))))))
