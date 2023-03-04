@@ -372,7 +372,7 @@ cljs.user> (dtype/list-coalesce! [[2 3 4][5 6 7]] (dtype/make-list :float32))
                                        (nth arg2 %)))))
           3 (let [arg1 (nth args 0)
                   arg2 (nth args 1)
-                  arg3 (nth args 3)]
+                  arg3 (nth args 2)]
               (reify-reader ret-dtype n-elems #(map-fn (nth arg1 %)
                                                        (nth arg2 %)
                                                        (nth arg3 %))))
