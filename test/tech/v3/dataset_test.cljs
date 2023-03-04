@@ -297,3 +297,9 @@
 (deftest simple-argfilter
   (let [ds (ds/->dataset {:a [1 2 3 4]})]
     (is (= [3 4] (vec (ds/column (ds/filter-column ds :a #(< 2 %)) :a))))))
+
+
+(deftest emap-nargs
+  (is (= [5 7 9] (vec (dtype/emap + :float64 [1 2 3] [4 5 6]))))
+  (is (= [12 15 18] (vec (dtype/emap + :float64 [1 2 3] [4 5 6] [7 8 9]))))
+  (is (= [22 26 30] (vec (dtype/emap + :float64 [1 2 3] [4 5 6] [7 8 9] [10 11 12])))))
