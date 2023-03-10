@@ -303,3 +303,10 @@
   (is (= [5 7 9] (vec (dtype/emap + :float64 [1 2 3] [4 5 6]))))
   (is (= [12 15 18] (vec (dtype/emap + :float64 [1 2 3] [4 5 6] [7 8 9]))))
   (is (= [22 26 30] (vec (dtype/emap + :float64 [1 2 3] [4 5 6] [7 8 9] [10 11 12])))))
+
+
+(deftest fast-nth-missing
+  (let [ds (ds/->dataset {:a [0 nil 1]}
+                         {:parser-fn {:a :int32}})
+        fnth (dtype/->fast-nth (ds :a))]
+    (is (js/isNaN (fnth 1)))))

@@ -67,9 +67,12 @@ cljs.user> (-> (ds/->dataset {:a (range 100)
                 rv))]
     (fn
       ([colname] (.computeIfAbsent parse-map (key-fn colname) afn))
-      ([] (let [max-rc (apply max 0 (lznc/map count parsers))]
-            (ds-impl/new-dataset (select-keys options [:name :dataset-name])
-                                 (hamf/mapv #(col-parsers/-finalize % max-rc) parsers)))))))
+      ([placeholder max-rc]
+       (let [max-rc (if max-rc
+                      max-rc
+                      (apply max (map dtype/ecount parsers)))]
+         (ds-impl/new-dataset (select-keys options [:name :dataset-name])
+                              (hamf/mapv #(col-parsers/-finalize % max-rc) parsers)))))))
 
 
 (defn mapseq-parser-rf
@@ -79,6 +82,7 @@ cljs.user> (-> (ds/->dataset {:a (range 100)
   (fn
     ([]
      (let [pfn (options->parser-fn options)
+           rc* (volatile! 0)
            rfn (hamf/indexed-accum-fn
                 (fn [acc rowidx v]
                   (reduce (fn [acc e]
@@ -86,10 +90,11 @@ cljs.user> (-> (ds/->dataset {:a (range 100)
                             acc)
                           nil
                           v)
+                  (vreset! rc* (unchecked-inc rowidx))
                   acc))]
        (fn
          ([acc v] (rfn acc v))
-         ([] (pfn)))))
+         ([] (pfn nil @rc*)))))
     ([acc] (acc))
     ([acc v] (acc nil v) acc)))
 
@@ -112,7 +117,7 @@ cljs.user> (-> (ds/->dataset {:a (range 100)
               acc)
             nil
             data)
-    (pfn)))
+    (pfn nil nil)))
 
 
 (defn ->dataset
@@ -143,7 +148,7 @@ cljs.user> (->> (ds/->dataset {:a (range 100)
        (map? data)
        (parse-colmap options data)
        (sequential? data)
-       (parse-mapseq options data)
+       (parse-mapseq nil options data)
        :else
        (throw (js/Error. "Unrecognized value for ->dataset")))))
   ([data] (->dataset data nil))
