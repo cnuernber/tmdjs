@@ -211,7 +211,7 @@
         buf-nth
         (if numeric?
           (fn [n]
-            (if (.has missing )
+            (if (.has missing n)
               ##NaN
               (buf-nth n)))
           (fn [n]
