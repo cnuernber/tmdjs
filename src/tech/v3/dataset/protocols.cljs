@@ -21,6 +21,7 @@
 
 
 (defprotocol PDataset
+  "Raw protocols for dealing with datasets."
   ;;error on failure
   (-column [ds colname])
   ;;indexable object.
@@ -28,6 +29,15 @@
   (-rowvecs [ds])
   (-row-at [ds idx])
   (-rowvec-at [ds idx]))
+
+
+(defprotocol PDatasetParser
+  "Protocols for the dataset parser created via (dataset-parser)."
+  (-add-row [p row]
+    "row needs to reduce to a sequence of objects implementing -key and -val")
+  (-add-rows [p rows]
+    "rows need only be reducible")
+  (-parser->rf [p]))
 
 
 (extend-type object

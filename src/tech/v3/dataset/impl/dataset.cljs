@@ -52,7 +52,8 @@
   [data colname n-rows]
   (let [pparser (col-parsers/promotional-object-parser colname)]
     (dtype/add-all! pparser (take n-rows data))
-    (col-parsers/-finalize pparser n-rows)))
+    (vary-meta (col-parsers/-finalize pparser n-rows)
+               #(merge (meta data) %))))
 
 
 (defn ->column
@@ -100,15 +101,17 @@
                      (when missing? (dotimes [idx n-rows] (.add missing idx)))
                      #:tech.v3.dataset{:data container
                                        :missing missing
-                                       :name colname}))
-          {:keys [tech.v3.dataset/name tech.v3.dataset/data
-                  tech.v3.dataset/missing tech.v3.dataset/metadata]} colmap
-          missing (or missing (js/Set.))
-          name (or colname name :_unnamed)]
-      (col-impl/new-column data missing
-                           (assoc metadata :name name)
-                           (casting/numeric-type?
-                            (dtype/elemwise-datatype data))))))
+                                       :name colname}))]
+      (if (ds-proto/-is-column? colmap)
+        colmap
+        (let [{:keys [tech.v3.dataset/name tech.v3.dataset/data
+                      tech.v3.dataset/missing tech.v3.dataset/metadata]} colmap
+              missing (or missing (js/Set.))
+              name (or colname name :_unnamed)]
+          (col-impl/new-column data missing
+                               (assoc metadata :name name)
+                               (casting/numeric-type?
+                                (dtype/elemwise-datatype data))))))))
 
 
 (declare cols->str)

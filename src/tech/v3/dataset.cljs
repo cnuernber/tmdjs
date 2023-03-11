@@ -70,9 +70,97 @@ cljs.user> (-> (ds/->dataset {:a (range 100)
       ([placeholder max-rc]
        (let [max-rc (if max-rc
                       max-rc
-                      (apply max (map dtype/ecount parsers)))]
-         (ds-impl/new-dataset (select-keys options [:name :dataset-name])
-                              (hamf/mapv #(col-parsers/-finalize % max-rc) parsers)))))))
+                      (apply max (map dtype/ecount parsers)))
+             columns (mapv #(col-parsers/-finalize % max-rc) parsers)
+             colmap (-> (reduce (hamf/indexed-accum-fn
+                                 (fn [acc idx v]
+                                   (.put ^JS acc (-name v) idx)
+                                   acc))
+                                (hamf/mut-map)
+                                columns)
+                        (persistent!))
+             ds-name (or (get options :dataset-name)
+                         (get options :name)
+                         :_unnamed)]
+         (ds-impl/make-dataset columns colmap {:name ds-name})
+         ))
+      ([] parsers))))
+
+
+
+(defn dataset-parser
+  "Create a dataset parser that implements PDatasetParser, ICounted an IIndexed (nth).
+  (nth) in this case returns a row.  deref'ing the parser yields the dataset.
+  The parser also implemetns reduce which will yield the current rows."
+  [options]
+  (let [pfn (options->parser-fn options)
+        rc* (volatile! 0)
+        rfn (hamf/indexed-accum-fn
+             (fn [acc rowidx v]
+               (reduce (fn [acc e]
+                         (col-parsers/-add-value! (pfn (-key e)) rowidx (-val e))
+                         acc)
+                       nil
+                       v)
+               (vreset! rc* (unchecked-inc rowidx))
+               acc))
+        parsers (pfn)
+        row-fn (fn [idx] (into {} (map (fn [parser]
+                                         [(-name parser) (-nth parser idx)]))
+                               parsers))]
+    (reify
+      ds-proto/PDatasetParser
+      (-add-row [this row]
+        (rfn nil row))
+      (-add-rows [this rows]
+        (reduce rfn nil rows))
+      (-parser->rf [p] rfn)
+      IDeref
+      (-deref [p] (pfn nil @rc*))
+      ICounted
+      (-count [_this] @rc*)
+      IIndexed
+      (-nth [this idx]
+        (let [ec @rc*]
+          (if (== 0 ec)
+            nil
+            (let [idx (if (< idx 0) (+ idx ec) idx)]
+              (if (or (< idx 0) (>= idx ec))
+                nil
+                (into {} (map (fn [parser]
+                                [(-name parser) (-nth parser idx)]))
+                      parsers))))))
+      (-nth [this idx dv]
+        (let [ec @rc*]
+          (if (== 0 ec)
+            dv
+            (let [idx (if (< idx 0) (+ idx ec) idx)]
+              (if (or (< idx 0) (>= idx ec))
+                dv
+                (row-fn idx))))))
+      IReduce
+      (-reduce [r rfn]
+        (if (== 0 @rc*)
+          (rfn)
+          (let [first* (volatile! true)]
+            (reduce (fn [acc v]
+                      (if @first*
+                        (do
+                          (vreset! first* false)
+                          v)
+                        (rfn acc v)))
+                    nil
+                    r))))
+      (-reduce [r rfn acc]
+        (let [ec @rc*]
+          (loop [idx 0
+                 acc acc]
+            (if (< idx ec)
+              (let [acc (rfn acc (row-fn idx))]
+                (if (reduced? acc)
+                  @acc
+                  (recur (unchecked-inc idx) acc)))
+              acc)))))))
 
 
 (defn mapseq-parser-rf

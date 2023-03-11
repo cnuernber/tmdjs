@@ -1,6 +1,7 @@
 (ns tech.v3.dataset-test
   (:require [cljs.test :refer [deftest is run-tests]]
             [tech.v3.dataset :as ds]
+            [tech.v3.dataset.protocols :as ds-proto]
             [tech.v3.dataset.node :as ds-node]
             [tech.v3.datatype :as dtype]
             [tech.v3.datatype.functional :as dfn]
@@ -310,3 +311,23 @@
                          {:parser-fn {:a :int32}})
         fnth (dtype/->fast-nth (ds :a))]
     (is (js/isNaN (fnth 1)))))
+
+
+(deftest fast-parser-ds-creation
+  (let [test-ds (ds/->dataset {:a (range 2000) :b (range 2000) :c (range 2000)})
+        a-parser (ds/dataset-parser {:name "just/a/column"})
+        parser  (ds/dataset-parser {:name "all/three/columns"})]
+    (ds-proto/-add-rows parser (ds/rows test-ds))
+    (ds-proto/-add-rows a-parser (ds/rows (ds/select-columns test-ds [:a])))
+    (dotimes [idx 4000] @parser)
+    (dotimes [idx 4000] @a-parser)
+    (dotimes [idx 4000] (-nth parser -1))
+    (println "3 column creation")
+    (time (dotimes [idx 1000] @parser))
+    (println "1 column creation")
+    (time (dotimes [idx 1000] @a-parser))
+    (println "row-at time")
+    (println (-nth parser -1))
+    (time
+     (dotimes [idx 1000] (-nth parser -1)))
+    (is (= {:a 1999 :b 1999 :c 1999} (-nth parser -1)))))

@@ -71,12 +71,25 @@
         (dt-proto/-add this val))
       (-finalize [this rowcount]
         (add-missing! rowcount missing-val data missing)
-        ;;We pay a performance penalty in order to have correct datatypes
-        ;;for array-based objects
-        #:tech.v3.dataset{:data (or (dtype/as-datatype-accurate-agetable data) data)
-                          :name colname
-                          :force-datatype? true
-                          :missing missing}))))
+        (let [data (or (dtype/as-datatype-accurate-agetable data) data)]
+          (dt-col/new-column data
+                             missing
+                             {:name colname}
+                             (casting/numeric-type?
+                              (dtype/elemwise-datatype data)))))
+      INamed
+      (-name [this] colname)
+      IIndexed
+      (-nth [this idx]
+        (if (or (>= idx (count data))
+                (.has missing idx))
+          missing-val
+          (-nth data idx)))
+      (-nth [this idx dv]
+        (if (or (>= idx (count data))
+                (.has missing idx))
+          dv
+          (-nth data idx))))))
 
 
 (deftype ObjParse [^:unsynchronized-mutable container
@@ -156,10 +169,25 @@
     (dt-proto/-add this val))
   (-finalize [_this rowcount]
     (add-missing! rowcount missing-val container missing)
-    #:tech.v3.dataset{:data (or (dtype/as-datatype-accurate-agetable container) container)
-                      :name colname
-                      :force-datatype? true
-                      :missing missing}))
+    (let [data (or (dtype/as-datatype-accurate-agetable container) container)]
+      (dt-col/new-column data
+                         missing
+                         {:name colname}
+                         (casting/numeric-type?
+                          (dtype/elemwise-datatype data)))))
+  INamed
+  (-name [this] colname)
+  IIndexed
+  (-nth [this idx]
+    (if (or (>= idx (count container))
+            (.has missing idx))
+      missing-val
+      (-nth container idx)))
+  (-nth [this idx dv]
+    (if (or (>= idx (count container))
+            (.has missing idx))
+      dv
+      (-nth container idx))))
 
 
 (defn promotional-object-parser
