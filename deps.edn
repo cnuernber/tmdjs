@@ -1,11 +1,11 @@
 {:paths ["src"]
  ;;We serialize datasets to transit-json
  :deps {com.cognitect/transit-cljs {:mvn/version "0.8.269"}
-        techascent/tech.ml.dataset {:mvn/version "7.000-beta-28"}
+        techascent/tech.ml.dataset {:mvn/version "7.000-beta-29"}
         tick/tick {:mvn/version "0.5.0"}
         com.cognitect/transit-clj {:mvn/version "1.0.324"}
         com.cnuernber/ham-scripted {:git/url "https://github.com/cnuernber/ham-scripted"
-                                    :sha "ca24cfc906561b305a252b926286bf0829150b7e"}}
+                                    :sha "36b657d7bdf3d6e168cb083897efbfa9021333da"}}
  :aliases
  {:dev
   {:extra-deps {metosin/muuntaja {:mvn/version "0.6.8"}}}

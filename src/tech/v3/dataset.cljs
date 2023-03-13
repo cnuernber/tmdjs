@@ -71,7 +71,7 @@ cljs.user> (-> (ds/->dataset {:a (range 100)
        (let [max-rc (if max-rc
                       max-rc
                       (apply max (map dtype/ecount parsers)))
-             columns (mapv #(col-parsers/-finalize % max-rc) parsers)
+             columns (hamf/mapv #(col-parsers/-finalize % max-rc) parsers)
              colmap (-> (reduce (hamf/indexed-accum-fn
                                  (fn [acc idx v]
                                    (.put ^JS acc (-name v) idx)
