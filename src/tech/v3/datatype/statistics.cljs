@@ -59,7 +59,7 @@
 (defn max
   [v]
   (->> (hamf/apply-nan-strategy nil v)
-       (hamf/mmin-key identity)))
+       (hamf/mmax-key identity)))
 
 
 (defn mean

@@ -44,3 +44,11 @@
 
 (defn instant->epoch-milliseconds
   [in] (instant/to-epoch-milli in))
+
+
+(defn epoch-microseconds->instant
+  [em] (instant/of-epoch-milli (/ em 1000)))
+
+
+(defn instant->epoch-microseconds
+  [in] (* 1000 (instant/to-epoch-milli in)))
