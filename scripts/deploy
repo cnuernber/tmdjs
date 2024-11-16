@@ -4,5 +4,7 @@ set -e
 
 scripts/run-tests
 clj -A:dev -X:codox
-clj -X:depstar
-clj -X:deploy
+rm -rf pom.xml
+clojure -T:build jar
+cp target/classes/META-INF/maven/com.cnuernber/tmdjs/pom.xml .
+clojure -X:deploy

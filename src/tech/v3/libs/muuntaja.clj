@@ -3,7 +3,7 @@
   server-side muuntaja bindings.  For client side bindings, please see
   tech.v3.libs.cljs-ajax."
   (:require [muuntaja.core :as m]
-            [tech.v3.libs.transit :as tech-transit]
+            [tech.v3.libs.clj-transit :as tech-transit]
             [muuntaja.middleware :as muuntaja-middle]))
 
 

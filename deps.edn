@@ -18,15 +18,9 @@
    :extra-paths ["test" "resources"]
    :main-opts ["-m" "shadow.cljs.devtools.cli"]}
   ;;run with clj -X:depstar
-  :depstar
-  {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.0.193"}}
-   :ns-default hf.depstar
-   :exec-fn hf.depstar/jar
-   :exec-args {:group-id "com.cnuernber"
-               :artifact-id "tmdjs"
-               :version "2.000-beta-11"
-               :sync-pom true
-               :jar "target/tmdjs.jar"}}
+  :build
+  {:deps {io.github.clojure/tools.build {:git/tag "v0.9.6" :git/sha "8e78bcc"}}
+   :ns-default build}
   ;;deploy to clojars
   :deploy
   {:replace-deps {slipset/deps-deploy {:mvn/version "0.1.5"}}
@@ -58,8 +52,10 @@
    :exec-fn codox.main/-main
    :exec-args {:arg-paths [[:aliases :depstar :exec-args]]
                :description "Dataframe processing for ClojureScript"
-               :name "tmdjs"
+               :group-id "com.cnuernber"
+               :artifact-id "tmdjs"
                :metadata {:doc/format :markdown}
+               :version "2.000"
                :google-analytics "G-CLH3CS7E1R"
                :html {:transforms [[:head] [:append [:script {:async true
                                                               :src "https://www.googletagmanager.com/gtag/js?id=G-CLH3CS7E1R"}]]
