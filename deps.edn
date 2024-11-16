@@ -11,7 +11,7 @@
   {:extra-deps {metosin/muuntaja {:mvn/version "0.6.8"}}}
   :cljs
   {:extra-deps {thheller/shadow-cljs {:mvn/version "2.12.4"}
-                cider/cider-nrepl {:mvn/version "0.28.5"}
+                cider/cider-nrepl {:mvn/version "0.29.0"}
                 cljs-ajax/cljs-ajax {:mvn/version "0.8.3"}
                 kixi/stats {:mvn/version "0.5.5"}}
    ;;resources has logback.xml which disables the annoying jboss logging
