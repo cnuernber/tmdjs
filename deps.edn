@@ -55,7 +55,7 @@
                :group-id "com.cnuernber"
                :artifact-id "tmdjs"
                :metadata {:doc/format :markdown}
-               :version "2.000"
+               :version "2.001"
                :google-analytics "G-CLH3CS7E1R"
                :html {:transforms [[:head] [:append [:script {:async true
                                                               :src "https://www.googletagmanager.com/gtag/js?id=G-CLH3CS7E1R"}]]
