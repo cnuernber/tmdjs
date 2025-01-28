@@ -48,7 +48,7 @@
   (let [ds (ds/->dataset [{:a "hey" :b :hey :c true}
                           {:a "you" :b :you :c false}])]
     (is (= #{:string :keyword :boolean}
-           (->> (vals ds)
+           (->> (ds/columns ds)
                 (map (comp :datatype meta))
                 (set))))))
 
@@ -56,7 +56,7 @@
 (deftest base-colmap-test
   (let [ds (ds/->dataset {:a [1 2 nil 3]
                           :b [1.01 2.02 3.03 4.04]})]
-    (is (= #{:float64} (->> (vals ds) (map (comp :datatype meta)) (set))))
+    (is (= #{:float64} (->> (ds/columns ds) (map (comp :datatype meta)) (set))))
     (is (= #{2} (ds/missing ds))))
   ;;test the one fastpath
   (let [ds (ds/->dataset {:a (dtype/make-container :float32 (concat
@@ -92,8 +92,8 @@
     (is (= (vec (range 5))
            (vec (nds :a))))
     (is (= #{4} (ds/missing nds)))
-    (is (= (mapv (comp :datatype meta) (vals ds))
-           (mapv (comp :datatype meta) (vals nds))))))
+    (is (= (mapv (comp :datatype meta) (ds/columns ds))
+           (mapv (comp :datatype meta) (ds/columns nds))))))
 
 
 ;;We have to remove the instants as they contain nanosecond data

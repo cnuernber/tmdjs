@@ -173,4 +173,4 @@
   ([n-elems dtype idx->val meta]
    (ReaderVec. meta idx->val n-elems dtype nil))
   ([n-elems dtype idx->val]
-   (reader-vec n-elems dtype idx->val meta)))
+   (reader-vec n-elems dtype idx->val nil)))

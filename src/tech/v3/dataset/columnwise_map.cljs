@@ -1,5 +1,6 @@
 (ns tech.v3.dataset.columnwise-map
-  (:require [tech.v3.datatype.protocols :as dt-proto]))
+  (:require [tech.v3.datatype.protocols :as dt-proto]
+            [tech.v3.dataset.protocols :as ds-proto]))
 
 (deftype ColAryRowIter [col-ary n-cols ^:mutable col-idx row-idx]
   Object
@@ -19,11 +20,11 @@
 
   ;; EXPERIMENTAL: subject to change
   (keys [coll]
-    (es6-iterator (keys coll)))
+    (es6-iterator (mapv name (ds-proto/-columns coll))))
   (entries [coll]
-    (es6-entries-iterator (seq coll)))
+    (es6-entries-iterator (ds-proto/-columns-as-map coll)))
   (values [coll]
-    (es6-iterator (vals coll)))
+    (es6-iterator (ds-proto/-columns coll)))
   (has [coll k]
     (contains? coll k))
   (get [coll k not-found]

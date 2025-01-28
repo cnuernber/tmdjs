@@ -185,8 +185,7 @@
 
   ISeqable
   (-seq [_this]
-    (when-not (zero? (count col-ary))
-      (map #(MapEntry. (name %) % nil) col-ary)))
+    (-seq col-ary))
 
   ISeq
   (-first [_this] (first col-ary))
@@ -213,7 +212,7 @@
       (reduce (fn [coll col]
                 (assoc coll (name col) col))
               coll
-              (vals o))))
+              (ds-proto/-columns o))))
 
   IHash
   (-hash [this] (hamf/hash-unordered (into [] (lznc/map
@@ -228,8 +227,8 @@
                 (ds-proto/-row-count other))
              (= (ds-proto/-column-count this)
                 (ds-proto/-column-count other)))
-      (let [mycols (vals this)
-            othercols (vals other)]
+      (let [mycols (ds-proto/-columns this)
+            othercols (ds-proto/-columns other)]
         (and (= (mapv name mycols)
                 (mapv name othercols))
              (= mycols othercols)))
@@ -253,6 +252,8 @@
     (if-let [col-idx (colname->col colname)]
       (col-ary col-idx)
       (throw (js/Error. (str "No column named \"" colname "\"")))))
+  (-columns [_ds] col-ary)
+  (-columns-as-map [_ds] (into {} (map #(vector (name %) %)) col-ary))
   (-rows [ds]
     (dtype/reify-reader :persistent-map
                         (ds-proto/-row-count ds)

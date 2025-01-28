@@ -208,6 +208,12 @@ cljs.user> (-> (ds/->dataset {:a (range 100)
     (pfn nil nil)))
 
 
+(defn dataset?
+  "Return true of this is a dataset."
+  [ds]
+  (ds-impl/dataset? ds))
+
+
 (defn ->dataset
   "Convert either a sequence of maps or a map of columns into a dataset.
   Options are similar to the jvm version of tech.v3.dataset in terms of
@@ -218,27 +224,28 @@ cljs.user> (-> (ds/->dataset {:a (range 100)
 ```clojure
 cljs.user> (->> (ds/->dataset {:a (range 100)
                                :b (take 100 (cycle [\"hey\" \"you\" \"goonies\"]))})
-                (vals)
+                (ds/cols)
                 (map (comp :datatype meta)))
 (:float64 :string)
 
 cljs.user> (->> (ds/->dataset {:a (range 100)
                                :b (take 100 (cycle [\"hey\" \"you\" \"goonies\"]))}
                               {:parser-fn {:a :int8}})
-                (vals)
+                (ds/cols)
                 (map (comp :datatype meta)))
 (:int8 :string)
 ```"
   ([data options]
-   (if (nil? data)
+   (cond
+     (nil? data)
      (ds-impl/new-dataset options)
-     (cond
-       (map? data)
-       (parse-colmap options data)
-       (sequential? data)
-       (parse-mapseq nil options data)
-       :else
-       (throw (js/Error. "Unrecognized value for ->dataset")))))
+     (dataset? data) data
+     (map? data)
+     (parse-colmap options data)
+     (sequential? data)
+     (parse-mapseq nil options data)
+     :else
+     (throw (js/Error. "Unrecognized value for ->dataset"))))
   ([data] (->dataset data nil))
   ([] (ds-impl/new-dataset)))
 
@@ -297,12 +304,6 @@ cljs.user> (pfn)
   ([] (mapseq-parser nil)))
 
 
-(defn dataset?
-  "Return true of this is a dataset."
-  [ds]
-  (ds-impl/dataset? ds))
-
-
 (defn missing
   "Return the missing set as a clojure set.  The underlying protocol returns
   missing sets as js sets as those have superior performance when using numbers."
@@ -332,13 +333,23 @@ cljs.user> (pfn)
 (defn columns
   "Return the columns, in order, of the dataset."
   [ds]
-  (vals ds))
+  (when ds (ds-proto/-columns ds)))
+
+(defn cols
+  "Alias of `columns`"
+  [ds]
+  (columns ds))
 
 
 (defn column-names
   "Return the column names as a sequence."
   [ds]
-  (keys ds))
+  (mapv name (ds-proto/-columns ds)))
+
+
+(defn columns-as-map
+  [ds]
+  (when ds (ds-proto/-columns-as-map ds)))
 
 
 (defn column

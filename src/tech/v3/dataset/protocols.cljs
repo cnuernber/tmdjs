@@ -24,6 +24,8 @@
   "Raw protocols for dealing with datasets."
   ;;error on failure
   (-column [ds colname])
+  (-columns [ds])
+  (-columns-as-map [ds])
   ;;indexable object.
   (-rows [ds])
   (-rowvecs [ds])
