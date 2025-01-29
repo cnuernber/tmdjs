@@ -239,7 +239,6 @@ cljs.user> (->> (ds/->dataset {:a (range 100)
    (cond
      (nil? data)
      (ds-impl/new-dataset options)
-     (dataset? data) data
      (map? data)
      (parse-colmap options data)
      (sequential? data)

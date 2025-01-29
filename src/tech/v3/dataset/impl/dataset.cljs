@@ -119,6 +119,14 @@
 
 (declare make-dataset)
 
+(defn- col-ary->map-entries
+  [col-ary]
+  (let [ne (count col-ary)]
+    (when-not (zero? ne)
+      (dtype/reify-reader ne (fn [idx]
+                               (let [col (col-ary idx)]
+                                 (MapEntry. (name col) col nil)))))))
+
 (deftype Dataset [col-ary colname->col metadata]
   Object
   (toString [coll]
@@ -185,7 +193,7 @@
 
   ISeqable
   (-seq [_this]
-    (-seq col-ary))
+    (seq (col-ary->map-entries col-ary)))
 
   ISeq
   (-first [_this] (first col-ary))
@@ -235,7 +243,7 @@
       false))
 
   IIterable
-  (-iterator [_this] (dt-arrays/nth-iter col-ary))
+  (-iterator [_this] (dt-arrays/nth-iter (col-ary->map-entries col-ary)))
 
   ds-proto/PRowCount
   (-row-count [_this]
